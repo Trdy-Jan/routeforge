@@ -84,7 +84,7 @@ def _transport_from(d: dict) -> Transport | None:
             return Transport(
                 type="httpupgrade" if o.get("v2ray-http-upgrade") else "ws",
                 path=o.get("path") or None,
-                host=(o.get("headers") or {}).get("Host") or None,
+                host=_header(o.get("headers") or {}, "Host"),
             )
         case "grpc":
             o = d.get("grpc-opts") or {}
@@ -92,9 +92,19 @@ def _transport_from(d: dict) -> Transport | None:
         case "h2":
             o = d.get("h2-opts") or {}
             hosts = o.get("host") or []
+            if isinstance(hosts, str):
+                hosts = [hosts]
             return Transport(type="h2", path=o.get("path") or None, host=hosts[0] if hosts else None)
         case _:
             raise ParseError(f"不支持的传输层：{net}")
+
+
+def _header(headers: dict, key: str) -> str | None:
+    """按 HTTP 惯例不区分大小写读取请求头。"""
+    for k, v in headers.items():
+        if isinstance(k, str) and k.lower() == key.lower() and v:
+            return v
+    return None
 
 
 def to_clash(node: Node) -> dict:

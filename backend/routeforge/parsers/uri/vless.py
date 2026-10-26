@@ -3,6 +3,7 @@
 from urllib.parse import quote
 
 from routeforge.ir.node import VlessNode
+from routeforge.parsers.errors import ParseError
 from routeforge.parsers.uri._common import (
     build_uri,
     split_standard,
@@ -15,6 +16,9 @@ from routeforge.parsers.uri._common import (
 
 def parse(uri: str) -> VlessNode:
     p = split_standard(uri)
+    encryption = p.query.get("encryption") or ""
+    if encryption not in ("none", ""):
+        raise ParseError(f"vless：不支持的 encryption：{encryption}")
     return VlessNode(
         name=p.name or f"{p.server}:{p.port}",
         server=p.server,

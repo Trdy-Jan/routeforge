@@ -101,3 +101,15 @@ def test_from_clash_error_message_does_not_stringify_non_scalar_name():
     with pytest.raises(ParseError) as exc:
         from_clash({"name": {"nested": [1, 2]}, "type": "ss"})
     assert "节点「?」" in str(exc.value)
+
+
+def test_from_clash_h2_host_as_plain_string():
+    node = from_clash({"name": "H", "type": "vless", "server": "a.com", "port": 443, "uuid": UUID, "tls": True,
+                       "network": "h2", "h2-opts": {"host": "b.com", "path": "/h2"}})
+    assert node.transport == Transport(type="h2", path="/h2", host="b.com")
+
+
+def test_from_clash_ws_host_header_is_case_insensitive():
+    node = from_clash({"name": "W", "type": "vmess", "server": "a.com", "port": 443, "uuid": UUID,
+                       "network": "ws", "ws-opts": {"path": "/ws", "headers": {"host": "b.com"}}})
+    assert node.transport.host == "b.com"

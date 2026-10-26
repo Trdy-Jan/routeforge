@@ -82,3 +82,13 @@ def test_dump_parse_roundtrip(node):
 def test_malformed_raises_parse_error(bad):
     with pytest.raises(ParseError):
         parse_uri(bad)
+
+
+def test_vless_unsupported_encryption_is_parse_error():
+    with pytest.raises(ParseError, match="vless：不支持的 encryption：aes-128-gcm"):
+        parse_uri(f"vless://{UUID}@ex.com:443?encryption=aes-128-gcm#x")
+
+
+@pytest.mark.parametrize("enc", ["none", ""])
+def test_vless_encryption_none_or_empty_is_accepted(enc):
+    assert parse_uri(f"vless://{UUID}@ex.com:443?encryption={enc}#x").uuid == UUID

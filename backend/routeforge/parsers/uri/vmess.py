@@ -15,6 +15,9 @@ def parse(uri: str) -> VmessNode:
         raise ParseError(f"vmess：JSON 无效：{e}") from e
     if not isinstance(data, dict):
         raise ParseError("vmess：内容不是 JSON 对象")
+    for key in ("add", "id"):
+        if data.get(key) in (None, ""):
+            raise ParseError(f"vmess：缺少或无效字段 '{key}'")
     try:
         server = str(data["add"])
         port = int(data["port"])

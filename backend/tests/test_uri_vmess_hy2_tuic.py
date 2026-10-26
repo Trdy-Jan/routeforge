@@ -86,3 +86,17 @@ def test_dump_parse_roundtrip(node):
 def test_malformed_raises_parse_error(bad):
     with pytest.raises(ParseError):
         parse_uri(bad)
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"add": None, "port": "1", "id": "x"},
+        {"add": "", "port": "1", "id": "x"},
+        {"add": "a", "port": "1", "id": None},
+        {"add": "a", "port": "1", "id": ""},
+    ],
+)
+def test_vmess_null_or_empty_add_or_id_is_parse_error(fields):
+    with pytest.raises(ParseError):
+        parse_uri("vmess://" + b64encode_text(json.dumps(fields)))
