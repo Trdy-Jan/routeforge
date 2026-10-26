@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { api } from './api'
 import LoginView from './views/LoginView.vue'
 import SourcesView from './views/SourcesView.vue'
+import NodesView from './views/NodesView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -15,6 +16,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'login', component: LoginView },
   { path: '/', redirect: { name: 'sources' } },
   { path: '/sources', name: 'sources', component: SourcesView, meta: { title: '节点源', order: 1 } },
+  { path: '/nodes', name: 'nodes', component: NodesView, meta: { title: '节点', order: 2 } },
 ]
 
 export const router = createRouter({ history: createWebHistory(), routes })
