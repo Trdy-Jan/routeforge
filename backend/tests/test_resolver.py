@@ -250,3 +250,29 @@ def test_duplicate_chain_for_same_landing_node_is_an_error():
     result = resolve(p, library)
     assert not result.ok
     assert any("落地节点「落地」配置了多条链式代理" in e for e in result.errors)
+
+
+def _rules_errors(rules, providers=()):
+    return resolve(make([group("Proxy")], rules=[*rules, *MATCH_PROXY], rule_providers=list(providers)), lib()).errors
+
+
+def test_non_match_rule_with_empty_value_is_an_error():
+    assert any("规则「DOMAIN」缺少值" in e for e in _rules_errors([Rule(type="DOMAIN", target="DIRECT")]))
+
+
+def test_rule_value_or_target_with_comma_is_an_error():
+    assert any("," in e for e in _rules_errors([Rule(type="DOMAIN", value="a.com,b", target="DIRECT")]))
+    errors = resolve(make([group("Proxy"), group("A,B")],
+                          rules=[Rule(type="DOMAIN", value="a.com", target="A,B"), *MATCH_PROXY]), lib()).errors
+    assert any("A,B" in e and "," in e for e in errors)
+
+
+@pytest.mark.parametrize("name", ["", "a/b", "a\\b", "a,b", "..x"])
+def test_bad_rule_provider_name_is_an_error(name):
+    errors = _rules_errors([], [RuleProvider(name=name, behavior="domain", url="https://x/a.yaml")])
+    assert any("规则集名称" in e for e in errors), errors
+
+
+def test_mrs_classical_rule_provider_is_an_error():
+    errors = _rules_errors([], [RuleProvider(name="c", behavior="classical", format="mrs", url="https://x/c.mrs")])
+    assert any("mrs 格式只支持 domain / ipcidr" in e for e in errors)

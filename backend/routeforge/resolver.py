@@ -215,7 +215,16 @@ class _Resolver:
         provider_names = [p.name for p in self.profile.rule_providers]
         if len(provider_names) != len(set(provider_names)):
             self.errors.append("规则集名称重复")
+        for p in self.profile.rule_providers:
+            if not p.name or any(bad in p.name for bad in ("/", "\\", ",", "..")):
+                self.errors.append(f"规则集名称「{p.name}」无效：不能为空，也不能包含 / \\ , ..")
+            if p.format == "mrs" and p.behavior == "classical":
+                self.errors.append(f"规则集「{p.name}」：mrs 格式只支持 domain / ipcidr")
         for r in rules:
+            if r.type != "MATCH" and not r.value:
+                self.errors.append(f"规则「{r.type}」缺少值")
+            if "," in r.value or "," in r.target:
+                self.errors.append(f"规则「{r.type},{r.value}」的值或目标「{r.target}」不能包含逗号「,」")
             if r.target not in group_names and r.target not in BUILTIN_TARGETS:
                 self.errors.append(f"规则「{r.type},{r.value}」的目标「{r.target}」不存在")
             if r.type == "RULE-SET" and r.value not in provider_names:
