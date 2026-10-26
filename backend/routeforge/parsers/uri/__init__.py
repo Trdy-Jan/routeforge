@@ -5,14 +5,18 @@ from typing import Callable
 
 from routeforge.ir.node import Node
 from routeforge.parsers.errors import ParseError
-from routeforge.parsers.uri import ss
+from routeforge.parsers.uri import ss, trojan, vless
 
 _PARSERS: dict[str, Callable[[str], Node]] = {
     "ss": ss.parse,
+    "trojan": trojan.parse,
+    "vless": vless.parse,
 }
 
 _DUMPERS: dict[str, Callable] = {
     "ss": ss.dump,
+    "trojan": trojan.dump,
+    "vless": vless.dump,
 }
 
 
