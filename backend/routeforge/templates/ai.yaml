@@ -1,0 +1,14 @@
+name: AI 服务
+description: OpenAI、Claude、Gemini 等境外 AI 服务单独分流
+groups:
+  - name: AI 服务
+    type: select
+    members:
+      - {kind: group, name: 节点选择}
+rule_providers:
+  - name: category-ai-not-cn
+    behavior: domain
+    format: mrs
+    url: https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/category-ai-!cn.mrs
+rules:
+  - {type: RULE-SET, value: category-ai-not-cn, target: AI 服务}

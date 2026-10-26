@@ -1,0 +1,13 @@
+name: Telegram
+description: Telegram 域名与 IP 段单独分流
+groups:
+  - name: Telegram
+    type: select
+    members:
+      - {kind: group, name: 节点选择}
+rule_providers:
+  - {name: telegram-domain, behavior: domain, format: mrs, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/telegram.mrs"}
+  - {name: telegram-ip, behavior: ipcidr, format: mrs, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geoip/telegram.mrs"}
+rules:
+  - {type: RULE-SET, value: telegram-domain, target: Telegram}
+  - {type: RULE-SET, value: telegram-ip, target: Telegram, no_resolve: true}

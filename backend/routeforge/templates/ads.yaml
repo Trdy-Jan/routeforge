@@ -1,0 +1,15 @@
+name: 广告拦截
+description: 拦截常见广告与跟踪域名（默认 REJECT，可切换为 DIRECT）
+groups:
+  - name: 广告拦截
+    type: select
+    members:
+      - {kind: builtin, name: REJECT}
+      - {kind: builtin, name: DIRECT}
+rule_providers:
+  - name: category-ads-all
+    behavior: domain
+    format: mrs
+    url: https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/category-ads-all.mrs
+rules:
+  - {type: RULE-SET, value: category-ads-all, target: 广告拦截}

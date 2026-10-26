@@ -1,0 +1,15 @@
+name: 流媒体
+description: Netflix、YouTube、Disney+ 走单独分组，便于指定解锁节点
+groups:
+  - name: 流媒体
+    type: select
+    members:
+      - {kind: group, name: 节点选择}
+rule_providers:
+  - {name: netflix, behavior: domain, format: mrs, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/netflix.mrs"}
+  - {name: youtube, behavior: domain, format: mrs, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/youtube.mrs"}
+  - {name: disney, behavior: domain, format: mrs, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/disney.mrs"}
+rules:
+  - {type: RULE-SET, value: netflix, target: 流媒体}
+  - {type: RULE-SET, value: youtube, target: 流媒体}
+  - {type: RULE-SET, value: disney, target: 流媒体}
