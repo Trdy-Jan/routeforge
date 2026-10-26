@@ -199,3 +199,54 @@ def test_pathological_regex_is_an_error_in_resolve():
     result = resolve(make([group("Proxy", Filter(name_regex="a{99999999999999999999}"))]), lib((1, 10, "a")))
     assert not result.ok
     assert any("正则" in e for e in result.errors)
+
+
+def test_three_hop_node_chain_resolves():
+    library = lib((1, 10, "Y"), (2, 10, "X"), (3, 10, "Z"))
+    p = make([group("Proxy", NodeRef(node_id=1))],
+             chains=[Chain(node=NodeRef(node_id=1), via=NodeRef(node_id=2)),
+                     Chain(node=NodeRef(node_id=2), via=NodeRef(node_id=3))])
+    result = resolve(p, library)
+    assert result.ok, result.errors
+    proxies = {n.name: n for n in result.profile.proxies}
+    assert [n.name for n in result.profile.proxies] == ["Y", "X", "Z"]
+    assert proxies["Y"].via == "X"
+    assert proxies["X"].via == "Z"
+    assert proxies["Z"].via is None
+    assert not any("不会生效" in w for w in result.warnings)
+
+
+def test_via_only_node_with_group_via_is_effective():
+    library = lib((1, 10, "Y"), (2, 10, "X"), (3, 20, "HK"))
+    p = make([group("Proxy", NodeRef(node_id=1)), group("前置", NodeRef(node_id=3))],
+             chains=[Chain(node=NodeRef(node_id=1), via=NodeRef(node_id=2)),
+                     Chain(node=NodeRef(node_id=2), via=GroupRef(name="前置"))])
+    result = resolve(p, library)
+    assert result.ok, result.errors
+    proxies = {n.name: n for n in result.profile.proxies}
+    assert proxies["Y"].via == "X"
+    assert proxies["X"].via == "前置"
+    assert not any("「X」" in w and "不会生效" in w for w in result.warnings)
+
+
+def test_ineffective_chain_cycle_is_not_reported_as_cycle():
+    library = lib((1, 10, "a"), (2, 10, "B"), (3, 10, "C"))
+    p = make([group("Proxy", NodeRef(node_id=1))],
+             chains=[Chain(node=NodeRef(node_id=2), via=NodeRef(node_id=3)),
+                     Chain(node=NodeRef(node_id=3), via=NodeRef(node_id=2))])
+    result = resolve(p, library)
+    assert result.ok, result.errors
+    assert not any("循环" in e for e in result.errors)
+    assert any("「B」" in w and "不会生效" in w for w in result.warnings)
+    assert any("「C」" in w and "不会生效" in w for w in result.warnings)
+    assert [n.name for n in result.profile.proxies] == ["a"]
+
+
+def test_duplicate_chain_for_same_landing_node_is_an_error():
+    library = lib((1, 10, "落地"), (2, 10, "A"), (3, 10, "B"))
+    p = make([group("Proxy", NodeRef(node_id=1))],
+             chains=[Chain(node=NodeRef(node_id=1), via=NodeRef(node_id=2)),
+                     Chain(node=NodeRef(node_id=1), via=NodeRef(node_id=3))])
+    result = resolve(p, library)
+    assert not result.ok
+    assert any("落地节点「落地」配置了多条链式代理" in e for e in result.errors)

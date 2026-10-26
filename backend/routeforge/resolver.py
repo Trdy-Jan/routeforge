@@ -62,7 +62,7 @@ class _Resolver:
         group_names = self._check_group_names()
         expanded = {g.name: self._expand(g) for g in self.profile.groups}
         chains = self._resolve_chains(group_names)
-        used = self._used_nodes(expanded, chains)
+        used, chains = self._effective(expanded, chains)
         names = self._assign_names(used, group_names)
         self._check_group_refs(expanded, group_names)
         self._check_cycles(expanded, chains)
@@ -108,11 +108,16 @@ class _Resolver:
 
     def _resolve_chains(self, group_names: set[str]) -> dict[int, Entry]:
         chains: dict[int, Entry] = {}
+        seen: set[int] = set()
         for c in self.profile.chains:
             ln = self.by_id.get(c.node.node_id)
             if ln is None or not ln.enabled:
                 self.warnings.append(f"链式代理的落地节点 #{c.node.node_id} 不存在或已禁用，已忽略")
                 continue
+            if ln.id in seen:
+                self.errors.append(f"落地节点「{ln.node.name}」配置了多条链式代理")
+                continue
+            seen.add(ln.id)
             match c.via:
                 case GroupRef(name=name):
                     if name not in group_names:
@@ -127,16 +132,32 @@ class _Resolver:
                     chains[ln.id] = ("node", vid)
         return chains
 
-    def _used_nodes(self, expanded: dict[str, list[Entry]], chains: dict[int, Entry]) -> list[int]:
-        used = [v for entries in expanded.values() for kind, v in entries if kind == "node"]
-        in_groups = set(used)
-        for nid, (kind, value) in chains.items():
-            if nid not in in_groups:
+    def _effective(
+        self, expanded: dict[str, list[Entry]], chains: dict[int, Entry]
+    ) -> tuple[list[int], dict[int, Entry]]:
+        """不动点：从分组可达的节点出发，落地节点已可达的链式代理生效，其前置节点随之可达。
+
+        返回 (used, 生效的链式代理)；used 先按分组顺序，再按发现顺序追加仅作前置的节点。
+        """
+        used = list(dict.fromkeys(v for entries in expanded.values() for kind, v in entries if kind == "node"))
+        reached = set(used)
+        effective: dict[int, Entry] = {}
+        changed = True
+        while changed:
+            changed = False
+            for nid, target in chains.items():
+                if nid in effective or nid not in reached:
+                    continue
+                effective[nid] = target
+                changed = True
+                kind, value = target
+                if kind == "node" and value not in reached:
+                    reached.add(value)
+                    used.append(value)
+        for nid in chains:
+            if nid not in effective:
                 self.warnings.append(f"落地节点「{self.by_id[nid].node.name}」未出现在任何分组中，链式代理不会生效")
-                continue
-            if kind == "node":
-                used.append(value)
-        return list(dict.fromkeys(used))
+        return used, {nid: t for nid, t in chains.items() if nid in effective}
 
     def _assign_names(self, used: list[int], group_names: set[str]) -> dict[int, str]:
         taken = set(group_names) | BUILTIN_TARGETS
