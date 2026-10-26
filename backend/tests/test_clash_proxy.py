@@ -95,3 +95,9 @@ def test_to_clash_rejects_transport_on_protocol_without_transport():
     node = Hysteria2Node(name="h", server="a.com", port=443, password="pw", transport=Transport(type="ws"))
     with pytest.raises(UnsupportedNode):
         to_clash(node)
+
+
+def test_from_clash_error_message_does_not_stringify_non_scalar_name():
+    with pytest.raises(ParseError) as exc:
+        from_clash({"name": {"nested": [1, 2]}, "type": "ss"})
+    assert "节点「?」" in str(exc.value)

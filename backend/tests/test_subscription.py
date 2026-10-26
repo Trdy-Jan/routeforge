@@ -44,3 +44,16 @@ def test_empty_and_garbage():
     assert garbage.nodes == []
     assert len(garbage.errors) == 1
     assert "无法识别" in garbage.errors[0].message
+
+
+def test_deeply_nested_yaml_does_not_leak_recursion_error():
+    text = "proxies: " + "[" * 5000 + "]" * 5000
+    outcome = parse_subscription(text)
+    assert outcome.nodes == []
+    assert outcome.errors
+
+
+def test_error_line_does_not_stringify_nested_structures():
+    text = "proxies:\n  - [1, 2, 3]\n  - {name: [a, b], type: ss}\n  - {name: 42, type: nope, server: s, port: 1}\n"
+    outcome = parse_subscription(text)
+    assert [e.line for e in outcome.errors] == ["list", "?", "42"]

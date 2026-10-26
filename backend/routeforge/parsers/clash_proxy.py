@@ -18,7 +18,13 @@ def from_clash(d: dict) -> Node:
     except ParseError:
         raise
     except (KeyError, TypeError, ValueError, ValidationError) as e:
-        raise ParseError(f"节点「{d.get('name', '?')}」无效：{e}") from e
+        raise ParseError(f"节点「{name_label(d)}」无效：{e}") from e
+
+
+def name_label(d: dict) -> str:
+    """错误信息中使用的节点名：仅接受 str / int，避免对任意嵌套结构（如 YAML 别名炸弹）调用 str()。"""
+    name = d.get("name")
+    return str(name) if isinstance(name, (str, int)) else "?"
 
 
 def _from_clash(d: dict) -> Node:

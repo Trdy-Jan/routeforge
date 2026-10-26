@@ -2,7 +2,7 @@
 
 import yaml
 
-from routeforge.parsers.clash_proxy import from_clash
+from routeforge.parsers.clash_proxy import from_clash, name_label
 from routeforge.parsers.errors import ParseError
 from routeforge.parsers.uri import LineError, ParseOutcome, parse_many
 from routeforge.parsers.uri._common import b64decode_loose
@@ -28,17 +28,24 @@ def parse_subscription(text: str) -> ParseOutcome:
 def _try_clash_yaml(text: str) -> ParseOutcome | None:
     try:
         data = yaml.safe_load(text)
-    except yaml.YAMLError:
+    except (yaml.YAMLError, RecursionError):
         return None
     if not isinstance(data, dict) or not isinstance(data.get("proxies"), list):
         return None
     outcome = ParseOutcome()
     for item in data["proxies"]:
         if not isinstance(item, dict):
-            outcome.errors.append(LineError(line=str(item)[:80], message="proxies 中的条目不是映射"))
+            outcome.errors.append(LineError(line=_item_label(item), message="proxies 中的条目不是映射"))
             continue
         try:
             outcome.nodes.append(from_clash(item))
         except ParseError as e:
-            outcome.errors.append(LineError(line=str(item.get("name", "?")), message=str(e)))
+            outcome.errors.append(LineError(line=name_label(item), message=str(e)))
     return outcome
+
+
+def _item_label(item) -> str:
+    """非映射条目的错误行文本：标量直接显示，容器只显示类型名，避免对嵌套结构调用 str()。"""
+    if isinstance(item, (str, int, float, bool)) or item is None:
+        return str(item)[:80]
+    return type(item).__name__
