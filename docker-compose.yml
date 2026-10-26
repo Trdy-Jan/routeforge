@@ -1,0 +1,16 @@
+services:
+  routeforge:
+    build: .
+    image: routeforge:latest
+    restart: unless-stopped
+    # 只监听本机，由宿主机上的反向代理（Caddy / Nginx）提供 HTTPS
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      ROUTEFORGE_ADMIN_PASSWORD: ${ROUTEFORGE_ADMIN_PASSWORD:?请在 .env 中设置 ROUTEFORGE_ADMIN_PASSWORD}
+      # 宿主机反代经 Docker 网关访问容器，只信任 Docker 桥接网段（172.16.0.0/12），
+      # 使登录限速按 X-Forwarded-For 中的真实客户端 IP 计数。
+      # 若 Docker 使用自定义网段，请相应调整该 CIDR。
+      ROUTEFORGE_FORWARDED_ALLOW_IPS: "172.16.0.0/12"
+    volumes:
+      - ./data:/data
