@@ -20,7 +20,7 @@ def test_base64_wrapped_over_multiple_lines():
 
 
 def test_plain_share_links_with_bom():
-    text = "﻿trojan://pw@a.example.com:443#A\nss://YWVzLTI1Ni1nY206dGVzdA@1.2.3.4:8388#B\n"
+    text = "\ufefftrojan://pw@a.example.com:443#A\nss://YWVzLTI1Ni1nY206dGVzdA@1.2.3.4:8388#B\n"
     assert [n.name for n in parse_subscription(text).nodes] == ["A", "B"]
 
 

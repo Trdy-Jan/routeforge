@@ -9,7 +9,7 @@ from routeforge.parsers.uri._common import b64decode_loose
 
 
 def parse_subscription(text: str) -> ParseOutcome:
-    stripped = text.lstrip("﻿").strip()
+    stripped = text.lstrip("\ufeff").strip()
     if not stripped:
         return ParseOutcome()
     clash = _try_clash_yaml(stripped)
