@@ -36,6 +36,7 @@ def parse_uri(uri: str) -> Node:
     parser = _PARSERS.get(scheme.lower())
     if parser is None:
         raise ParseError(f"不支持的协议：{scheme}")
+    uri = scheme.lower() + uri[len(scheme):]
     try:
         return parser(uri)
     except ParseError:

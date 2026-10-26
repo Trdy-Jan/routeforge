@@ -85,3 +85,11 @@ def test_parse_many_skips_blank_and_comment_lines_and_collects_errors():
     assert [n.name for n in outcome.nodes] == ["A"]
     assert len(outcome.errors) == 1
     assert outcome.errors[0].line == "ss://broken"
+
+
+def test_uppercase_scheme_is_normalized_before_dispatch():
+    upper = parse_uri("SS://YWVzLTI1Ni1nY206dGVzdA@1.2.3.4:8388#B")
+    lower = parse_uri("ss://YWVzLTI1Ni1nY206dGVzdA@1.2.3.4:8388#B")
+    assert upper == lower == SSNode(
+        name="B", server="1.2.3.4", port=8388, cipher="aes-256-gcm", password="test"
+    )
