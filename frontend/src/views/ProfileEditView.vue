@@ -3,7 +3,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { NButton, NDropdown, NInput, NSpace, NSpin, NTabPane, NTabs, useMessage } from 'naive-ui'
 import { api } from '../api'
-import type { Profile, ProfileDetail, TemplateInfo } from '../api/types'
+import type { NodeItem, Profile, ProfileDetail, Source, TemplateInfo } from '../api/types'
+import GroupEditor from '../components/GroupEditor.vue'
 import PreviewPanel from '../components/PreviewPanel.vue'
 
 const props = defineProps<{ id: number }>()
@@ -15,6 +16,8 @@ const profile = ref<Profile | null>(null)
 const savedJson = ref('')
 const version = ref(0)
 const templates = ref<TemplateInfo[]>([])
+const nodes = ref<NodeItem[]>([])
+const sources = ref<Source[]>([])
 const saving = ref(false)
 
 const dirty = computed(() => profile.value !== null && JSON.stringify(profile.value) !== savedJson.value)
@@ -31,8 +34,12 @@ function setDetail(d: ProfileDetail) {
 
 async function load() {
   try {
-    const [d, t] = await Promise.all([api.getProfile(props.id), api.listTemplates()])
+    const [d, t, n, s] = await Promise.all([
+      api.getProfile(props.id), api.listTemplates(), api.listNodes(), api.listSources(),
+    ])
     templates.value = t
+    nodes.value = n
+    sources.value = s
     setDetail(d)
   } catch (e) {
     message.error((e as Error).message)
@@ -98,7 +105,10 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         </NSpace>
       </NSpace>
 
-      <NTabs type="line" default-value="preview" animated>
+      <NTabs type="line" default-value="groups" animated>
+        <NTabPane name="groups" tab="分组">
+          <GroupEditor v-model="profile" :nodes="nodes" :sources="sources" />
+        </NTabPane>
         <NTabPane name="preview" tab="预览与订阅">
           <PreviewPanel
             :profile-id="detail.id"
