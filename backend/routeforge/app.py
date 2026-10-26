@@ -20,6 +20,7 @@ from routeforge.cache import RenderCache
 from routeforge.config import Settings
 from routeforge.db.session import init_db, make_engine
 from routeforge.scheduler import refresh_loop
+from routeforge.web import mount_frontend
 
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH"}
 
@@ -78,4 +79,6 @@ def create_app(settings: Settings, *, http_client: httpx.Client | None = None,
     app.include_router(profiles_api.router)
     app.include_router(templates_api.router)
     app.include_router(subscribe_api.router)
+    if settings.static_dir is not None:
+        mount_frontend(app, settings.static_dir)
     return app
