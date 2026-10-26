@@ -33,8 +33,8 @@ function addMatch() {
 }
 
 function setType(r: Rule, t: RuleType) {
+  if (r.type !== t) r.value = ''
   r.type = t
-  if (t === 'MATCH' || t === 'RULE-SET') r.value = ''
   if (!NO_RESOLVE_TYPES.includes(t)) r.no_resolve = false
 }
 

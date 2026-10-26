@@ -15,14 +15,17 @@ const preview = ref<Preview | null>(null)
 const loading = ref(false)
 const url = computed(() => subscriptionUrl(window.location.origin, props.token))
 
+let seq = 0
 async function load() {
+  const mine = ++seq
   loading.value = true
   try {
-    preview.value = await api.preview(props.profileId)
+    const r = await api.preview(props.profileId)
+    if (mine === seq) preview.value = r
   } catch (e) {
-    message.error((e as Error).message)
+    if (mine === seq) message.error((e as Error).message)
   } finally {
-    loading.value = false
+    if (mine === seq) loading.value = false
   }
 }
 onMounted(load)

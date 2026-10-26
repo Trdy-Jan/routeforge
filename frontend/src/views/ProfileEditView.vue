@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
-import { NButton, NDropdown, NInput, NSpace, NSpin, NTabPane, NTabs, useMessage } from 'naive-ui'
+import { NButton, NDropdown, NInput, NResult, NSpace, NSpin, NTabPane, NTabs, useMessage } from 'naive-ui'
 import { api } from '../api'
 import type { NodeItem, Profile, ProfileDetail, Source, TemplateInfo } from '../api/types'
 import ChainEditor from '../components/ChainEditor.vue'
@@ -22,6 +22,7 @@ const templates = ref<TemplateInfo[]>([])
 const nodes = ref<NodeItem[]>([])
 const sources = ref<Source[]>([])
 const saving = ref(false)
+const loadError = ref<string | null>(null)
 
 const dirty = computed(() => profile.value !== null && JSON.stringify(profile.value) !== savedJson.value)
 const templateOptions = computed(() =>
@@ -36,6 +37,7 @@ function setDetail(d: ProfileDetail) {
 }
 
 async function load() {
+  loadError.value = null
   try {
     const [d, t, n, s] = await Promise.all([
       api.getProfile(props.id), api.listTemplates(), api.listNodes(), api.listSources(),
@@ -45,7 +47,7 @@ async function load() {
     sources.value = s
     setDetail(d)
   } catch (e) {
-    message.error((e as Error).message)
+    loadError.value = (e as Error).message
   }
 }
 onMounted(load)
@@ -66,6 +68,7 @@ async function save(): Promise<boolean> {
 }
 
 async function applyTemplate(key: string | number) {
+  if (saving.value) return
   if (dirty.value && !(await save())) return
   try {
     const r = await api.applyTemplate(props.id, String(key))
@@ -91,18 +94,26 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
 </script>
 
 <template>
-  <NSpin :show="!profile">
+  <NResult v-if="loadError" status="error" title="加载失败" :description="loadError">
+    <template #footer>
+      <NSpace justify="center">
+        <NButton type="primary" @click="load">重试</NButton>
+        <NButton @click="router.push({ name: 'profiles' })">返回列表</NButton>
+      </NSpace>
+    </template>
+  </NResult>
+  <NSpin v-else :show="!profile">
     <NSpace v-if="profile && detail" vertical size="large">
       <NSpace align="center" justify="space-between">
         <NSpace align="center">
           <NButton text @click="router.push({ name: 'profiles' })">← 返回</NButton>
-          <NInput v-model:value="profile.name" placeholder="方案名称" style="width: 240px" />
+          <NInput v-model:value="profile.name" :disabled="saving" placeholder="方案名称" style="width: 240px" />
         </NSpace>
         <NSpace>
-          <NDropdown :options="templateOptions" trigger="click" @select="applyTemplate">
-            <NButton>套用模板</NButton>
+          <NDropdown :options="templateOptions" :disabled="saving" trigger="click" @select="applyTemplate">
+            <NButton :disabled="saving">套用模板</NButton>
           </NDropdown>
-          <NButton type="primary" :disabled="!dirty || !profile.name.trim()" :loading="saving" @click="save">
+          <NButton type="primary" :disabled="saving || !dirty || !profile.name.trim()" :loading="saving" @click="save">
             保存
           </NButton>
         </NSpace>

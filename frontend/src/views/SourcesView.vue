@@ -84,6 +84,7 @@ async function refresh(s: Source) {
 const importTarget = ref<Source | null>(null)
 const importText = ref('')
 const importErrors = ref<LineError[]>([])
+const importing = ref(false)
 
 function openImport(s: Source) {
   importTarget.value = s
@@ -92,15 +93,19 @@ function openImport(s: Source) {
 }
 
 async function doImport() {
-  if (!importTarget.value) return
+  if (!importTarget.value || importing.value) return
+  importing.value = true
   try {
     const r = await api.importNodes(importTarget.value.id, importText.value)
     importErrors.value = r.errors
-    message.success(`已导入 ${r.added} 个节点`)
+    if (r.added === 0) message.warning('没有导入任何节点')
+    else message.success(`已导入 ${r.added} 个节点`)
     if (r.errors.length === 0) importTarget.value = null
     await load()
   } catch (e) {
     message.error((e as Error).message)
+  } finally {
+    importing.value = false
   }
 }
 
@@ -224,7 +229,7 @@ const columns: DataTableColumns<Source> = [
     <template #footer>
       <NSpace justify="end">
         <NButton @click="importTarget = null">关闭</NButton>
-        <NButton type="primary" @click="doImport">导入</NButton>
+        <NButton type="primary" :loading="importing" @click="doImport">导入</NButton>
       </NSpace>
     </template>
   </NModal>
