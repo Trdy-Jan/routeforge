@@ -21,7 +21,10 @@ def mount_frontend(app: FastAPI, static_dir: Path) -> None:
         if path.startswith(_RESERVED_PREFIXES) or path in ("api", "sub"):
             raise HTTPException(status_code=404)
         if path:
-            candidate = (root / path).resolve()
-            if candidate.is_file() and candidate.is_relative_to(root):
-                return FileResponse(candidate)
+            try:
+                candidate = (root / path).resolve()
+                if candidate.is_relative_to(root) and candidate.is_file():
+                    return FileResponse(candidate)
+            except (OSError, ValueError):
+                pass
         return FileResponse(index)

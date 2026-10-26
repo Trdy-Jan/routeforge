@@ -38,9 +38,23 @@ def test_api_and_sub_paths_are_not_swallowed(web_client):
     assert web_client.get("/api/auth/me").status_code == 401
 
 
-def test_path_traversal_returns_index_not_file(web_client):
-    resp = web_client.get("/..%2Fsecret.txt")
-    assert "SECRET" not in resp.text
+@pytest.mark.parametrize("url", [
+    "/..%2Fsecret.txt",
+    "/%2e%2e/secret.txt",
+    "/..%5Csecret.txt",
+    "/a%00b",
+])
+def test_invalid_or_traversal_paths_return_index(web_client, url):
+    resp = web_client.get(url)
+    assert resp.status_code == 200
+    assert resp.text == "<html>INDEX</html>"
+
+
+def test_absolute_path_outside_static_returns_index(web_client, tmp_path):
+    secret = str(tmp_path / "secret.txt").replace("\\", "/")
+    resp = web_client.get("//" + secret)
+    assert resp.status_code == 200
+    assert resp.text == "<html>INDEX</html>"
 
 
 def test_no_static_dir_means_no_frontend(client):
