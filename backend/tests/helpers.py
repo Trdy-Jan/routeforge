@@ -1,5 +1,7 @@
 import httpx
 
+ADMIN_PASSWORD = "secret-pw"
+
 
 def mock_client(routes: dict) -> httpx.Client:
     """routes: url -> httpx.Response | Exception | (request -> httpx.Response)"""
