@@ -47,7 +47,11 @@ class MihomoRenderer:
 
         groups = []
         for g in profile.groups:
-            entry: dict = {"name": g.name, "type": g.type, "proxies": [m for m in g.members if m not in skipped] or ["DIRECT"]}
+            members = [m for m in g.members if m not in skipped]
+            if not members:
+                warnings.append(f"分组「{g.name}」的成员均被跳过，已自动加入 DIRECT")
+                members = ["DIRECT"]
+            entry: dict = {"name": g.name, "type": g.type, "proxies": members}
             if g.type != "select":
                 entry["url"] = g.url
                 entry["interval"] = g.interval

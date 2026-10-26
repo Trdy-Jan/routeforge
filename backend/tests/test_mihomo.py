@@ -91,6 +91,8 @@ def test_unsupported_node_is_skipped_with_warning_and_removed_from_groups():
     assert "坏" not in [x["name"] for x in config["proxies"]]
     assert config["proxy-groups"][0]["proxies"] == ["DIRECT"]
     assert any("坏" in w for w in result.warnings)
+    assert "分组「节点选择」的成员均被跳过，已自动加入 DIRECT" in result.warnings
+    assert not any("「前置」" in w and "均被跳过" in w for w in result.warnings)
 
 
 def test_dialer_proxy_pointing_to_skipped_node_is_dropped():
