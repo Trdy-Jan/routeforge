@@ -10,6 +10,8 @@ from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from routeforge.api import auth as auth_api
+from routeforge.api import nodes as nodes_api
+from routeforge.api import sources as sources_api
 from routeforge.auth import LoginLimiter, bootstrap_secrets
 from routeforge.cache import RenderCache
 from routeforge.config import Settings
@@ -68,4 +70,6 @@ def create_app(settings: Settings, *, http_client: httpx.Client | None = None,
     )
 
     app.include_router(auth_api.router)
+    app.include_router(sources_api.router)
+    app.include_router(nodes_api.router)
     return app
