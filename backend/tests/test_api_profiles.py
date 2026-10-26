@@ -73,3 +73,12 @@ def test_rotate_token(admin):
     p = create_profile(admin)
     rotated = admin.post(f"/api/profiles/{p['id']}/rotate-token", json={}).json()
     assert rotated["token"] != p["token"] and len(rotated["token"]) >= 40
+
+
+def test_update_rejects_blank_or_overlong_name(admin):
+    p = create_profile(admin)
+    for name in ("", "   ", "x" * 101):
+        resp = admin.put(f"/api/profiles/{p['id']}", json={**GOOD, "name": name})
+        assert resp.status_code == 422
+    assert admin.get(f"/api/profiles/{p['id']}").json()["profile"]["name"] == "我的方案"
+    assert admin.put(f"/api/profiles/{p['id']}", json={**GOOD, "name": "x" * 100}).status_code == 200

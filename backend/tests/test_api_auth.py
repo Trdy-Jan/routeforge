@@ -61,3 +61,38 @@ def test_password_only_needed_on_first_start(tmp_path):
                      start_scheduler=False)
     with TestClient(app) as c:
         assert c.post("/api/auth/login", json={"password": "first"}).status_code == 200
+
+
+def test_session_invalidated_when_password_hash_recreated(tmp_path):
+    from sqlmodel import Session, select
+    from routeforge.db.models import Setting
+
+    def settings(pw):
+        return Settings(data_dir=tmp_path, database_url=f"sqlite:///{tmp_path / 'rf.db'}",
+                        admin_password=pw, cookie_secure=False)
+
+    app1 = create_app(settings("first"), start_scheduler=False)
+    with TestClient(app1) as c1:
+        assert c1.post("/api/auth/login", json={"password": "first"}).status_code == 200
+        cookie = c1.cookies.get("routeforge_session")
+        assert c1.get("/api/auth/me").status_code == 200
+    with Session(app1.state.engine) as s:
+        s.delete(s.get(Setting, "admin_password_hash"))
+        s.commit()
+    app1.state.engine.dispose()
+
+    app2 = create_app(settings("second"), start_scheduler=False)
+    with TestClient(app2) as c2:
+        c2.cookies.set("routeforge_session", cookie)
+        assert c2.get("/api/auth/me").status_code == 401
+        c2.cookies.clear()
+        assert c2.post("/api/auth/login", json={"password": "second"}).status_code == 200
+
+
+def test_oversized_password_is_422(client):
+    assert client.post("/api/auth/login", json={"password": "x" * 1025}).status_code == 422
+
+
+def test_docs_and_openapi_disabled(client):
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert client.get(path).status_code == 404

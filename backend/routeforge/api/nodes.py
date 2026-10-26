@@ -31,7 +31,7 @@ class NodePatch(BaseModel):
 
 
 class BulkIn(BaseModel):
-    ids: list[int]
+    ids: list[int] = Field(max_length=5000)
     enabled: bool
 
 

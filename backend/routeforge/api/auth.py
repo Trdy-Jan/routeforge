@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from routeforge.api.deps import SessionDep, require_admin
 from routeforge.auth import verify_password
@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 class LoginIn(BaseModel):
-    password: str
+    password: str = Field(max_length=1024)
 
 
 @router.post("/login")

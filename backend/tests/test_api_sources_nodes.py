@@ -97,3 +97,30 @@ def test_match_filter(admin):
     matched = admin.post("/api/nodes/match", json={"source_id": sid, "name_regex": "^A$"}).json()
     assert [n["name"] for n in matched] == ["A"]
     assert admin.post("/api/nodes/match", json={"name_regex": "("}).status_code == 400
+
+
+def test_create_subscription_with_malformed_url_is_422(admin):
+    resp = admin.post("/api/sources", json={"kind": "subscription", "name": "x", "url": "http://[::1"})
+    assert resp.status_code == 422
+    assert admin.get("/api/sources").json() == []
+
+
+def test_patch_malformed_url_is_400(admin, routes):
+    routes["https://a.example/s"] = httpx.Response(200, text="trojan://pw@a.example.com:443#A\n")
+    sid = admin.post("/api/sources", json={"kind": "subscription", "name": "x", "url": "https://a.example/s"}).json()["id"]
+    assert admin.patch(f"/api/sources/{sid}", json={"url": "http://[::1"}).status_code == 400
+
+
+def test_changing_url_clears_last_fetched_at(admin, routes):
+    routes["https://a.example/s"] = httpx.Response(200, text="trojan://pw@a.example.com:443#A\n")
+    created = admin.post("/api/sources", json={"kind": "subscription", "name": "x", "url": "https://a.example/s"}).json()
+    assert created["last_fetched_at"] is not None
+    same = admin.patch(f"/api/sources/{created['id']}", json={"url": "https://a.example/s"}).json()
+    assert same["last_fetched_at"] is not None
+    changed = admin.patch(f"/api/sources/{created['id']}", json={"url": "https://b.example/s"}).json()
+    assert changed["last_fetched_at"] is None
+
+
+def test_bulk_ids_capped(admin):
+    resp = admin.post("/api/nodes/bulk", json={"ids": list(range(5001)), "enabled": False})
+    assert resp.status_code == 422

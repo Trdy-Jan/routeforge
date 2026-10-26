@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, model_validator
 from sqlmodel import Session, func, select
@@ -15,7 +16,12 @@ router = APIRouter(prefix="/api/sources", tags=["sources"], dependencies=[Depend
 
 
 def _valid_url(url: str | None) -> bool:
-    return bool(url) and url.startswith(("http://", "https://"))
+    if not url or not url.startswith(("http://", "https://")):
+        return False
+    try:
+        return bool(httpx.URL(url).host)
+    except httpx.InvalidURL:
+        return False
 
 
 class SourceIn(BaseModel):
@@ -110,6 +116,8 @@ def update_source(source_id: int, body: SourcePatch, session: SessionDep, cache:
             raise HTTPException(status_code=400, detail="手动节点源没有订阅链接")
         if not _valid_url(changes["url"]):
             raise HTTPException(status_code=400, detail="订阅源需要 http(s) 链接")
+        if changes["url"] != source.url:
+            source.last_fetched_at = None
     for key, value in changes.items():
         setattr(source, key, value)
     session.add(source)

@@ -127,3 +127,28 @@ def test_refresh_due_and_loop_calls_on_change(engine):
 
     asyncio.run(main())
     assert calls
+
+
+def test_unexpected_exception_is_recorded_and_nodes_kept(engine):
+    with Session(engine) as s:
+        src = add_sub(s)
+        refresh_source(s, src, mock_client({URL: httpx.Response(200, text=TWO_LINKS)}))
+        outcome = refresh_source(s, src, mock_client({URL: RuntimeError("boom")}))
+        assert outcome.ok is False and "RuntimeError" in outcome.error
+        assert node_names(s) == ["A", "B"]
+        sid = src.id
+    with Session(engine) as fresh:
+        got = fresh.get(Source, sid)
+        assert "RuntimeError" in got.last_error and got.last_fetched_at is not None
+
+
+def test_invalid_url_is_recorded(engine):
+    with Session(engine) as s:
+        src = add_sub(s)
+        src.url = "http://[::1"
+        outcome = refresh_source(s, src, mock_client({}))
+        assert outcome.ok is False
+        sid = src.id
+    with Session(engine) as fresh:
+        got = fresh.get(Source, sid)
+        assert got.last_error and got.last_fetched_at is not None

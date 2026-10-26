@@ -103,3 +103,42 @@ def test_cache_is_used_and_invalidated_by_writes(admin, app):
     admin.post("/api/nodes/bulk", json={"ids": node_ids, "enabled": False})
     assert app.state.cache.get((p["id"], "mihomo")) is None
     assert proxy_names(admin.get(f"/sub/{p['token']}")) == []
+
+
+def test_render_failure_falls_back_to_last_good(admin, monkeypatch):
+    manual_with(admin, SS_HK)
+    p = make_profile(admin)
+    first = admin.get(f"/sub/{p['token']}")
+    assert first.status_code == 200
+    admin.put(f"/api/profiles/{p['id']}", json=GOOD)  # invalidates cache
+
+    def boom(*a, **k):
+        raise RuntimeError("render exploded")
+
+    monkeypatch.setattr("routeforge.api.subscribe.render_profile", boom)
+    resp = admin.get(f"/sub/{p['token']}")
+    assert resp.status_code == 200 and resp.text == first.text
+
+
+def test_render_failure_without_history_is_500(admin, monkeypatch):
+    manual_with(admin, SS_HK)
+    p = make_profile(admin)
+
+    def boom(*a, **k):
+        raise RuntimeError("render exploded")
+
+    monkeypatch.setattr("routeforge.api.subscribe.render_profile", boom)
+    assert admin.get(f"/sub/{p['token']}").status_code == 500
+
+
+def test_last_good_commit_failure_still_serves_content(admin, monkeypatch):
+    from sqlmodel import Session
+    manual_with(admin, SS_HK)
+    p = make_profile(admin)
+
+    def fail_commit(self):
+        raise RuntimeError("db locked")
+
+    monkeypatch.setattr(Session, "commit", fail_commit)
+    resp = admin.get(f"/sub/{p['token']}")
+    assert resp.status_code == 200 and "proxies" in resp.text

@@ -1,5 +1,6 @@
 """公开订阅接口：客户端用 token 拉取渲染后的配置。"""
 
+import logging
 from dataclasses import dataclass
 from urllib.parse import quote
 
@@ -14,6 +15,7 @@ from routeforge.renderers import RENDERERS
 from routeforge.services.render import render_profile
 from routeforge.sources.fetch import format_userinfo
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["subscribe"])
 
 
@@ -48,14 +50,23 @@ def subscribe(token: str, session: SessionDep, cache: CacheDep, target: str = "m
 
 
 def _render_or_fallback(session: Session, row: ProfileRow, target: str, cache: RenderCache, key) -> CachedSub | None:
-    outcome = render_profile(session, row.to_profile(), target)
-    if outcome.result is not None:
+    try:
+        outcome = render_profile(session, row.to_profile(), target)
+    except Exception:
+        logger.exception("渲染方案 #%s（%s）出错，回退到历史版本", row.id, target)
+        outcome = None
+    if outcome is not None and outcome.result is not None:
         r = outcome.result
-        row.last_good = {**(row.last_good or {}),
-                         target: {"content": r.content, "content_type": r.content_type, "file_ext": r.file_ext}}
-        row.last_good_at = utcnow()
-        session.add(row)
-        session.commit()
+        entry = {"content": r.content, "content_type": r.content_type, "file_ext": r.file_ext}
+        if (row.last_good or {}).get(target) != entry:
+            try:
+                row.last_good = {**(row.last_good or {}), target: entry}
+                row.last_good_at = utcnow()
+                session.add(row)
+                session.commit()
+            except Exception:
+                logger.exception("保存方案 #%s 的最近可用版本失败", row.id)
+                session.rollback()
         sub = CachedSub(r.content, r.content_type, r.file_ext, _userinfo_header(session, outcome.source_ids))
         cache.put(key, sub)
         return sub

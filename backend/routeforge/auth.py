@@ -24,10 +24,15 @@ def bootstrap_secrets(session: Session, admin_password: str | None) -> str:
         if not admin_password:
             raise ConfigError("首次启动必须设置环境变量 ROUTEFORGE_ADMIN_PASSWORD")
         session.add(Setting(key=ADMIN_HASH_KEY, value=_hasher.hash(admin_password)))
+        new_password = True
+    else:
+        new_password = False
     secret = session.get(Setting, SESSION_SECRET_KEY)
     if secret is None:
         secret = Setting(key=SESSION_SECRET_KEY, value=secrets.token_urlsafe(32))
-        session.add(secret)
+    elif new_password:  # 密码重置后让旧会话全部失效
+        secret.value = secrets.token_urlsafe(32)
+    session.add(secret)
     session.commit()
     return secret.value
 

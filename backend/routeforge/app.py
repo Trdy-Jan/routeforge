@@ -49,7 +49,7 @@ def create_app(settings: Settings, *, http_client: httpx.Client | None = None,
             if http_client is None:
                 client.close()
 
-    app = FastAPI(title="RouteForge", lifespan=lifespan)
+    app = FastAPI(title="RouteForge", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.settings = settings
     app.state.engine = engine
     app.state.cache = cache

@@ -1,6 +1,7 @@
 """刷新订阅源：拉取 → 解析 → 同步节点；失败时保留旧节点。"""
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -15,6 +16,7 @@ from routeforge.services.library import SyncResult, sync_nodes
 from routeforge.sources.fetch import fetch_subscription
 
 logger = logging.getLogger(__name__)
+_refresh_lock = threading.Lock()
 
 
 @dataclass
@@ -28,10 +30,21 @@ class RefreshOutcome:
 def refresh_source(session: Session, source: Source, client: httpx.Client) -> RefreshOutcome:
     if source.kind != "subscription" or not source.url:
         raise ValueError("只有订阅源可以刷新")
-    source.last_fetched_at = utcnow()
+    with _refresh_lock:
+        source.last_fetched_at = utcnow()
+        try:
+            return _refresh(session, source, client)
+        except Exception as e:
+            logger.exception("刷新订阅源 #%s 出现未预期的错误", source.id)
+            session.rollback()
+            source.last_fetched_at = utcnow()
+            return _fail(session, source, f"刷新失败：{_describe(e)}")
+
+
+def _refresh(session: Session, source: Source, client: httpx.Client) -> RefreshOutcome:
     try:
         fetched = fetch_subscription(client, source.url, source.user_agent)
-    except httpx.HTTPError as e:
+    except (httpx.HTTPError, httpx.InvalidURL) as e:
         return _fail(session, source, f"拉取失败：{_describe(e)}")
 
     outcome = parse_subscription(fetched.text)
@@ -54,7 +67,7 @@ def _fail(session: Session, source: Source, message: str, parse_errors=()) -> Re
     return RefreshOutcome(ok=False, error=message, parse_errors=list(parse_errors))
 
 
-def _describe(e: httpx.HTTPError) -> str:
+def _describe(e: Exception) -> str:
     if isinstance(e, httpx.HTTPStatusError):
         return f"HTTP {e.response.status_code}"
     return f"{type(e).__name__}: {e}" if str(e) else type(e).__name__

@@ -86,6 +86,10 @@ def get_profile(profile_id: int, session: SessionDep) -> ProfileOut:
 @router.put("/{profile_id}")
 def update_profile(profile_id: int, body: Profile, session: SessionDep, cache: CacheDep) -> ProfileOut:
     row = _get(session, profile_id)
+    if not body.name.strip():
+        raise HTTPException(status_code=422, detail="方案名称不能为空")
+    if len(body.name) > 100:
+        raise HTTPException(status_code=422, detail="方案名称不能超过 100 个字符")
     row.set_profile(body)
     return _out(_save(session, row, cache))
 
