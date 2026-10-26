@@ -4,8 +4,11 @@ import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { NButton, NDropdown, NInput, NSpace, NSpin, NTabPane, NTabs, useMessage } from 'naive-ui'
 import { api } from '../api'
 import type { NodeItem, Profile, ProfileDetail, Source, TemplateInfo } from '../api/types'
+import ChainEditor from '../components/ChainEditor.vue'
 import GroupEditor from '../components/GroupEditor.vue'
 import PreviewPanel from '../components/PreviewPanel.vue'
+import ProviderEditor from '../components/ProviderEditor.vue'
+import RuleEditor from '../components/RuleEditor.vue'
 
 const props = defineProps<{ id: number }>()
 const router = useRouter()
@@ -108,6 +111,15 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
       <NTabs type="line" default-value="groups" animated>
         <NTabPane name="groups" tab="分组">
           <GroupEditor v-model="profile" :nodes="nodes" :sources="sources" />
+        </NTabPane>
+        <NTabPane name="rules" tab="规则">
+          <RuleEditor v-model="profile" />
+        </NTabPane>
+        <NTabPane name="providers" tab="规则集">
+          <ProviderEditor v-model="profile" />
+        </NTabPane>
+        <NTabPane name="chains" tab="链式代理">
+          <ChainEditor v-model="profile" :nodes="nodes" />
         </NTabPane>
         <NTabPane name="preview" tab="预览与订阅">
           <PreviewPanel
