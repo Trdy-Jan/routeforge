@@ -26,9 +26,12 @@ function navigate(key: string) {
 }
 
 async function logout() {
-  await api.logout()
-  markLoggedOut()
-  router.push({ name: 'login' })
+  try {
+    await api.logout()
+  } finally {
+    markLoggedOut()
+    router.push({ name: 'login' })
+  }
 }
 </script>
 

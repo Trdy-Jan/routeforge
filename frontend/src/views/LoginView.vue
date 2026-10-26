@@ -17,7 +17,8 @@ async function submit() {
   try {
     await api.login(password.value)
     markLoggedIn()
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    const raw = route.query.redirect
+    const redirect = typeof raw === 'string' && /^\/(?!\/)/.test(raw) ? raw : '/'
     router.push(redirect)
   } catch (e) {
     error.value = (e as Error).message

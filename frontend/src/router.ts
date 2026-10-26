@@ -20,6 +20,11 @@ const routes: RouteRecordRaw[] = [
 export const router = createRouter({ history: createWebHistory(), routes })
 
 let authenticated = false
+let authCheckInFlight = false
+
+export function isAuthCheckInFlight(): boolean {
+  return authCheckInFlight
+}
 
 export function markLoggedIn(): void {
   authenticated = true
@@ -31,11 +36,14 @@ export function markLoggedOut(): void {
 
 router.beforeEach(async (to) => {
   if (to.name === 'login' || authenticated) return true
+  authCheckInFlight = true
   try {
     await api.me()
     authenticated = true
     return true
   } catch {
     return { name: 'login', query: { redirect: to.fullPath } }
+  } finally {
+    authCheckInFlight = false
   }
 })
