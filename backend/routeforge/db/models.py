@@ -9,7 +9,8 @@ from routeforge.ir.profile import Profile
 
 
 def utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+    # sqlmodel 0.0.48 的 datetime 列只接受带时区的值，因此返回 aware UTC。
+    return datetime.now(UTC)
 
 
 def new_token() -> str:
