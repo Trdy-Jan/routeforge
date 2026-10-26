@@ -33,7 +33,14 @@ async function errorMessage(resp: Response): Promise<string> {
   try {
     const data = await resp.json()
     if (typeof data?.detail === 'string') return data.detail
-    if (Array.isArray(data?.detail)) return data.detail.map((d: { msg: string }) => d.msg).join('；')
+    if (Array.isArray(data?.detail)) {
+      return data.detail
+        .map((d: unknown) => {
+          const msg = (d as { msg?: unknown } | null)?.msg
+          return (typeof msg === 'string' ? msg : String(d)).replace(/^Value error, /, '')
+        })
+        .join('；')
+    }
   } catch {
     // 响应不是 JSON
   }

@@ -51,7 +51,14 @@ describe('request', () => {
 
   it('joins 422 validation messages', async () => {
     mockFetch(422, { detail: [{ msg: 'Value error, 订阅源需要 http(s) 链接' }, { msg: 'Field required' }] })
-    await expect(request('POST', '/api/x')).rejects.toThrow('Value error, 订阅源需要 http(s) 链接；Field required')
+    await expect(request('POST', '/api/x')).rejects.toMatchObject({ message: '订阅源需要 http(s) 链接；Field required' })
+  })
+
+  it('never renders undefined for 422 items without msg', async () => {
+    mockFetch(422, { detail: [{ loc: ['body'] }, 'plain'] })
+    const err = await request('POST', '/api/x').catch((e: Error) => e)
+    expect((err as Error).message).not.toContain('undefined')
+    expect((err as Error).message).toContain('plain')
   })
 
   it('falls back to status text when body is not JSON', async () => {
