@@ -188,3 +188,14 @@ def test_rule_validation():
         lib(),
     )
     assert ok.ok, ok.errors
+
+
+def test_pathological_regex_overflow_raises_re_error():
+    with pytest.raises(re.error):
+        match_filter(lib((1, 10, "a")), Filter(name_regex="a{99999999999999999999}"))
+
+
+def test_pathological_regex_is_an_error_in_resolve():
+    result = resolve(make([group("Proxy", Filter(name_regex="a{99999999999999999999}"))]), lib((1, 10, "a")))
+    assert not result.ok
+    assert any("正则" in e for e in result.errors)

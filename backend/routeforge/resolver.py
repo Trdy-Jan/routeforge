@@ -36,8 +36,11 @@ def resolve(profile: Profile, library: list[LibraryNode]) -> ResolveResult:
 
 def match_filter(library: list[LibraryNode], f: Filter) -> list[LibraryNode]:
     """返回过滤器匹配的已启用节点（保持节点库顺序）；正则无效时抛 re.error。"""
-    include = re.compile(f.name_regex)
-    exclude = re.compile(f.exclude_regex) if f.exclude_regex else None
+    try:
+        include = re.compile(f.name_regex)
+        exclude = re.compile(f.exclude_regex) if f.exclude_regex else None
+    except (OverflowError, RecursionError) as e:
+        raise re.error(f"正则过于复杂：{e}") from e
     return [
         ln for ln in library
         if ln.enabled
