@@ -79,6 +79,46 @@ def test_no_rule_providers_key_when_none_defined():
     assert "rule-providers" not in yaml.safe_load(MihomoRenderer().render(p).content)
 
 
+GEOSITE_BASE = "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite"
+
+
+def geosite_profile(rules, providers=()) -> ResolvedProfile:
+    return ResolvedProfile(name="x", proxies=[], groups=[group("G", ["DIRECT"])],
+                           rules=[*rules, Rule(type="MATCH", target="G")],
+                           rule_providers=list(providers), source_ids=[])
+
+
+def test_geosite_rule_becomes_mrs_rule_provider():
+    p = geosite_profile([Rule(type="GEOSITE", value="Tencent", target="G")])
+    config = yaml.safe_load(MihomoRenderer().render(p).content)
+    assert config["rule-providers"] == {
+        "geosite-tencent": {"type": "http", "behavior": "domain", "format": "mrs",
+                            "url": f"{GEOSITE_BASE}/tencent.mrs",
+                            "interval": 86400, "path": "./ruleset/geosite-tencent.mrs"},
+    }
+    assert config["rules"] == ["RULE-SET,geosite-tencent,G", "MATCH,G"]
+
+
+def test_geosite_reuses_provider_with_same_url_and_dedupes():
+    docker = RuleProvider(name="docker", behavior="domain", format="mrs", url=f"{GEOSITE_BASE}/docker.mrs")
+    p = geosite_profile([
+        Rule(type="GEOSITE", value="docker", target="G"),
+        Rule(type="GEOSITE", value="cn", target="DIRECT"),
+        Rule(type="GEOSITE", value="cn", target="G"),
+    ], [docker])
+    config = yaml.safe_load(MihomoRenderer().render(p).content)
+    assert list(config["rule-providers"]) == ["docker", "geosite-cn"]
+    assert config["rules"] == ["RULE-SET,docker,G", "RULE-SET,geosite-cn,DIRECT", "RULE-SET,geosite-cn,G", "MATCH,G"]
+
+
+def test_geosite_provider_name_avoids_collision():
+    taken = RuleProvider(name="geosite-cn", behavior="domain", format="yaml", url="https://example.com/cn.yaml")
+    p = geosite_profile([Rule(type="GEOSITE", value="cn", target="G")], [taken])
+    config = yaml.safe_load(MihomoRenderer().render(p).content)
+    assert config["rule-providers"]["geosite-cn-2"]["url"] == f"{GEOSITE_BASE}/cn.mrs"
+    assert config["rules"][0] == "RULE-SET,geosite-cn-2,G"
+
+
 def test_unsupported_node_is_skipped_with_warning_and_removed_from_groups():
     bad = Hysteria2Node(name="坏", server="a.com", port=443, password="pw", transport=Transport(type="ws"))
     p = sample()
