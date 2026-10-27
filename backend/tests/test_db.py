@@ -1,3 +1,4 @@
+import pytest
 from sqlmodel import Session, select
 
 from routeforge.config import Settings
@@ -47,4 +48,12 @@ def test_settings_from_env(tmp_path):
     assert s.admin_password is None and s.static_dir is None
 
     d = Settings.from_env({"ROUTEFORGE_ADMIN_PASSWORD": "pw", "ROUTEFORGE_STATIC_DIR": "/srv/web"})
-    assert d.cookie_secure is True and d.admin_password == "pw" and d.static_dir.as_posix() == "/srv/web"
+    assert d.cookie_secure is None and d.admin_password == "pw" and d.static_dir.as_posix() == "/srv/web"
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("true", True), ("1", True), ("YES", True), ("false", False), ("off", False),
+    ("auto", None), (" Auto ", None), ("", None),
+])
+def test_settings_cookie_secure_modes(raw, expected):
+    assert Settings.from_env({"ROUTEFORGE_COOKIE_SECURE": raw}).cookie_secure is expected

@@ -22,6 +22,33 @@ def test_session_cookie_flags(client):
     assert "routeforge_session=" in cookie and "httponly" in cookie and "samesite=lax" in cookie
 
 
+def _login_cookie(tmp_path, cookie_secure, base_url):
+    settings = Settings(data_dir=tmp_path, database_url="sqlite://", admin_password=ADMIN_PASSWORD,
+                        cookie_secure=cookie_secure)
+    with TestClient(create_app(settings, start_scheduler=False), base_url=base_url) as c:
+        resp = c.post("/api/auth/login", json={"password": ADMIN_PASSWORD})
+        assert resp.status_code == 200
+        return resp.headers["set-cookie"].lower()
+
+
+@pytest.mark.parametrize("cookie_secure, base_url, secure", [
+    (None, "http://lan.test", False),
+    (None, "https://example.test", True),
+    (True, "http://lan.test", True),
+    (False, "https://example.test", False),
+])
+def test_cookie_secure_flag_by_mode_and_scheme(tmp_path, cookie_secure, base_url, secure):
+    assert ("; secure" in _login_cookie(tmp_path, cookie_secure, base_url)) is secure
+
+
+def test_auto_mode_session_works_over_http_and_https(tmp_path):
+    for base_url in ("http://lan.test", "https://example.test"):
+        settings = Settings(data_dir=tmp_path, database_url="sqlite://", admin_password=ADMIN_PASSWORD)
+        with TestClient(create_app(settings, start_scheduler=False), base_url=base_url) as c:
+            assert c.post("/api/auth/login", json={"password": ADMIN_PASSWORD}).status_code == 200
+            assert c.get("/api/auth/me").status_code == 200
+
+
 def test_lockout_after_five_failures(client):
     for _ in range(5):
         assert client.post("/api/auth/login", json={"password": "wrong"}).status_code == 401
