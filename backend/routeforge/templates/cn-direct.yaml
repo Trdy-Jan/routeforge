@@ -1,0 +1,12 @@
+name: 国内直连
+description: 局域网、中国大陆域名与 IP 直连
+rule_providers:
+  - {name: private-domain, behavior: domain, format: mrs, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/private.mrs"}
+  - {name: cn-domain, behavior: domain, format: mrs, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/cn.mrs"}
+  - {name: private-ip, behavior: ipcidr, format: mrs, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geoip/private.mrs"}
+  - {name: cn-ip, behavior: ipcidr, format: mrs, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geoip/cn.mrs"}
+rules:
+  - {type: RULE-SET, value: private-domain, target: DIRECT}
+  - {type: RULE-SET, value: cn-domain, target: DIRECT}
+  - {type: RULE-SET, value: private-ip, target: DIRECT, no_resolve: true}
+  - {type: RULE-SET, value: cn-ip, target: DIRECT}

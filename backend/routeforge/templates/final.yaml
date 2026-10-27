@@ -1,0 +1,10 @@
+name: 漏网之鱼
+description: 未匹配任何规则的流量走此分组（MATCH 规则）
+groups:
+  - name: 漏网之鱼
+    type: select
+    members:
+      - {kind: group, name: 节点选择}
+      - {kind: builtin, name: DIRECT}
+rules:
+  - {type: MATCH, target: 漏网之鱼}
