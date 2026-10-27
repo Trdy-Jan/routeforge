@@ -3,7 +3,7 @@ from routeforge.ir.profile import NodeRef, Profile, ProxyGroup, Rule
 from routeforge.resolver import LibraryNode, resolve
 from routeforge.templates import PLACEHOLDER_GROUP, apply_template, load_templates
 
-ALL_IDS = ["ads", "ai", "cn-direct", "final", "streaming", "telegram"]
+ALL_IDS = ["ads", "ai", "cn-direct", "docker", "final", "github", "streaming", "telegram"]
 
 
 def test_all_builtin_templates_load_and_use_metacubex_rule_sets():

@@ -1,0 +1,12 @@
+name: Docker
+description: Docker Hub 等镜像仓库域名单独分流，便于拉取镜像
+groups:
+  - name: Docker
+    type: select
+    members:
+      - {kind: group, name: 节点选择}
+      - {kind: builtin, name: DIRECT}
+rule_providers:
+  - {name: docker, behavior: domain, format: mrs, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/docker.mrs"}
+rules:
+  - {type: RULE-SET, value: docker, target: Docker}

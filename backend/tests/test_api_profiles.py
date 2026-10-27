@@ -42,7 +42,7 @@ def test_create_get_update_delete(admin):
 
 def test_templates_list_and_apply(admin):
     templates = admin.get("/api/templates").json()
-    assert len(templates) == 6
+    assert len(templates) == 8
     assert {"id": "ads", "name": "广告拦截"}.items() <= templates[0].items()
 
     p = create_profile(admin)

@@ -1,0 +1,12 @@
+name: GitHub
+description: GitHub 及其静态资源、下载域名单独分流
+groups:
+  - name: GitHub
+    type: select
+    members:
+      - {kind: group, name: 节点选择}
+      - {kind: builtin, name: DIRECT}
+rule_providers:
+  - {name: github, behavior: domain, format: mrs, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/github.mrs"}
+rules:
+  - {type: RULE-SET, value: github, target: GitHub}
