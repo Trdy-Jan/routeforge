@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { NAlert, NButton, NCard, NInput, NInputGroup, NSpace, NText, useDialog, useMessage } from 'naive-ui'
+import { NAlert, NButton, NInput, NInputGroup, NSpace, useDialog, useMessage } from 'naive-ui'
 import { api } from '../api'
 import type { Preview, ProfileDetail } from '../api/types'
 import { copyText } from '../lib/clipboard'
@@ -56,19 +56,17 @@ function rotate() {
 
 <template>
   <NSpace vertical size="large">
-    <NCard title="订阅链接" size="small">
-      <NSpace vertical>
-        <NInputGroup>
-          <NInput :value="url" readonly />
-          <NButton @click="copy">复制</NButton>
-          <NButton type="warning" ghost @click="rotate">重置</NButton>
-        </NInputGroup>
-        <NText depth="3">在 Clash Verge Rev 等使用 Mihomo 内核的客户端中添加此订阅链接。</NText>
-      </NSpace>
-    </NCard>
+    <section class="sub">
+      <h3>订阅链接</h3>
+      <p>在 Clash Verge Rev 等使用 Mihomo 内核的客户端中添加此链接。</p>
+      <NInputGroup>
+        <NInput :value="url" readonly class="mono" />
+        <NButton type="primary" @click="copy">复制</NButton>
+        <NButton secondary type="warning" @click="rotate">重置</NButton>
+      </NInputGroup>
+    </section>
 
     <NAlert v-if="dirty" type="warning">有未保存的修改：预览和订阅链接使用的是已保存的版本。</NAlert>
-    <NButton :loading="loading" @click="load">重新生成预览</NButton>
 
     <template v-if="preview">
       <NAlert v-if="preview.errors.length" type="error" title="方案有错误，无法生成配置（订阅链接会继续返回上次成功的版本）">
@@ -77,22 +75,66 @@ function rotate() {
       <NAlert v-if="preview.warnings.length" type="warning" title="警告">
         <ul class="list"><li v-for="(w, i) in preview.warnings" :key="i">{{ w }}</li></ul>
       </NAlert>
-      <pre v-if="preview.content" class="yaml">{{ preview.content }}</pre>
     </template>
+
+    <section class="code">
+      <div class="code__bar">
+        <span>生成的 Mihomo 配置</span>
+        <NButton size="tiny" quaternary class="code__btn" :loading="loading" @click="load">重新生成</NButton>
+      </div>
+      <pre v-if="preview?.content" class="yaml">{{ preview.content }}</pre>
+      <p v-else class="code__empty">{{ loading ? '正在生成…' : preview?.errors.length ? '修正上面的错误并保存后，这里会显示生成的配置。' : '没有可显示的配置。' }}</p>
+    </section>
   </NSpace>
 </template>
 
 <style scoped>
+.sub h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+.sub p {
+  color: var(--rf-muted);
+  font-size: 13px;
+  margin: 4px 0 10px;
+}
 .list {
   margin: 0;
   padding-left: 20px;
 }
-.yaml {
-  background: #f6f8fa;
-  border-radius: 6px;
+.code {
+  background: #10263c;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.code__bar {
+  align-items: center;
+  border-bottom: 1px solid #22405e;
+  color: #9fb4c8;
+  display: flex;
   font-size: 12px;
+  justify-content: space-between;
+  padding: 6px 8px 6px 14px;
+}
+.code__btn {
+  color: #c4d2df;
+}
+.yaml {
+  color: #dbe6ef;
+  font-family: var(--rf-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  margin: 0;
   max-height: 600px;
   overflow: auto;
-  padding: 12px;
+  padding: 14px 16px;
+  tab-size: 2;
+}
+.code__empty {
+  color: #9fb4c8;
+  font-size: 13px;
+  margin: 0;
+  padding: 16px;
 }
 </style>

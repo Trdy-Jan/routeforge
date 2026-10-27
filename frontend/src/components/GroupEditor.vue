@@ -111,7 +111,7 @@ function submitFilter(f: FilterMember) {
 <template>
   <NSpace vertical>
     <NEmpty v-if="!profile.groups.length" description="还没有分组：可以「套用模板」，或在下方新建" />
-    <NCard v-for="(g, i) in profile.groups" :key="i" size="small">
+    <NCard v-for="(g, i) in profile.groups" :key="i" size="small" class="group" embedded>
       <template #header>
         <NSpace align="center">
           <NInput
@@ -130,52 +130,58 @@ function submitFilter(f: FilterMember) {
         </NSpace>
       </template>
       <template #header-extra>
-        <NSpace size="small">
-          <NButton size="tiny" @click="moveGroup(i, -1)">上移</NButton>
-          <NButton size="tiny" @click="moveGroup(i, 1)">下移</NButton>
-          <NButton size="tiny" type="error" ghost @click="removeGroup(i)">删除</NButton>
+        <NSpace size="small" :wrap="false">
+          <NButton size="small" quaternary :disabled="i === 0" title="上移" @click="moveGroup(i, -1)">上移</NButton>
+          <NButton size="small" quaternary :disabled="i === profile.groups.length - 1" title="下移" @click="moveGroup(i, 1)">下移</NButton>
+          <NButton size="small" quaternary type="error" @click="removeGroup(i)">删除</NButton>
         </NSpace>
       </template>
 
-      <NSpace v-if="g.type !== 'select'" align="center" style="margin-bottom: 8px">
-        <span>测速地址</span>
-        <NInput v-model:value="g.url" style="width: 300px" />
-        <span>间隔</span>
+      <div v-if="g.type !== 'select'" class="probe">
+        <span class="edit-row__label">测速地址</span>
+        <NInput v-model:value="g.url" size="small" class="mono" style="width: 300px" />
+        <span class="edit-row__label">间隔</span>
         <NInputNumber
           :value="g.interval"
           :min="10"
+          size="small"
           style="width: 110px"
           @update:value="(v: number | null) => (g.interval = v ?? 300)"
-        />
-        <span>秒</span>
+        >
+          <template #suffix>秒</template>
+        </NInputNumber>
         <template v-if="g.type === 'url-test'">
-          <span>容差</span>
+          <span class="edit-row__label">容差</span>
           <NInputNumber
             :value="g.tolerance"
             :min="0"
-            style="width: 110px"
+            size="small"
+            style="width: 120px"
             @update:value="(v: number | null) => (g.tolerance = v ?? 50)"
-          />
-          <span>毫秒</span>
+          >
+            <template #suffix>毫秒</template>
+          </NInputNumber>
         </template>
-      </NSpace>
+      </div>
 
       <div v-for="(m, mi) in g.members" :key="mi" class="member">
-        <NTag size="small" :type="tagType(m)">{{ memberLabel(m, nodeMap, sourceMap) }}</NTag>
-        <NSpace size="small">
+        <span class="member__idx mono">{{ mi + 1 }}</span>
+        <NTag size="small" :bordered="false" :type="tagType(m)">{{ memberLabel(m, nodeMap, sourceMap) }}</NTag>
+        <NSpace size="small" class="member__ops" :wrap="false">
           <NButton size="tiny" quaternary @click="moveMember(i, mi, -1)">↑</NButton>
           <NButton size="tiny" quaternary @click="moveMember(i, mi, 1)">↓</NButton>
           <NButton size="tiny" quaternary type="error" @click="removeMember(i, mi)">✕</NButton>
         </NSpace>
       </div>
-      <NText v-if="!g.members.length" depth="3">暂无成员（空分组在生成配置时会自动加入 DIRECT）</NText>
+      <NText v-if="!g.members.length" depth="3" class="member-empty">暂无成员（空分组在生成配置时会自动加入 DIRECT）</NText>
 
-      <NSpace style="margin-top: 8px">
+      <NSpace class="adders" size="small">
         <NSelect
           :value="null"
           :options="nodeOptions"
           filterable
           placeholder="添加节点"
+          size="small"
           style="width: 260px"
           @update:value="(v: unknown) => addMember(i, { kind: 'node', node_id: v as number })"
         />
@@ -183,12 +189,13 @@ function submitFilter(f: FilterMember) {
           :value="null"
           :options="groupOptions(g.name)"
           placeholder="添加分组"
+          size="small"
           style="width: 160px"
           @update:value="(v: unknown) => addMember(i, { kind: 'group', name: v as string })"
         />
-        <NButton size="small" @click="addMember(i, { kind: 'builtin', name: 'DIRECT' })">+ DIRECT</NButton>
-        <NButton size="small" @click="addMember(i, { kind: 'builtin', name: 'REJECT' })">+ REJECT</NButton>
-        <NButton size="small" @click="filterFor = i">+ 过滤器</NButton>
+        <NButton size="small" secondary @click="addMember(i, { kind: 'builtin', name: 'DIRECT' })">+ DIRECT</NButton>
+        <NButton size="small" secondary @click="addMember(i, { kind: 'builtin', name: 'REJECT' })">+ REJECT</NButton>
+        <NButton size="small" secondary type="primary" @click="filterFor = i">+ 过滤器</NButton>
       </NSpace>
     </NCard>
     <NButton dashed block @click="addGroup">新建分组</NButton>
@@ -206,11 +213,51 @@ function submitFilter(f: FilterMember) {
 </template>
 
 <style scoped>
-.member {
+.group {
+  border-radius: 10px;
+}
+.group + .group {
+  margin-top: 4px;
+}
+.probe {
   align-items: center;
   display: flex;
-  justify-content: space-between;
-  max-width: 560px;
-  padding: 2px 0;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.member {
+  align-items: center;
+  border-radius: 6px;
+  display: flex;
+  gap: 10px;
+  max-width: 620px;
+  padding: 3px 4px;
+}
+.member:hover {
+  background: #fff;
+}
+.member__idx {
+  color: var(--rf-faint);
+  text-align: right;
+  width: 20px;
+}
+.member__ops {
+  margin-left: auto;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.member:hover .member__ops,
+.member:focus-within .member__ops {
+  opacity: 1;
+}
+.member-empty {
+  display: block;
+  padding: 4px 0;
+}
+.adders {
+  border-top: 1px dashed var(--rf-line);
+  margin-top: 10px;
+  padding-top: 10px;
 }
 </style>

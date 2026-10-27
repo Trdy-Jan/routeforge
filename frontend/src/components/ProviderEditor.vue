@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { NAlert, NButton, NEmpty, NInput, NInputNumber, NSelect, NSpace, useDialog, useMessage } from 'naive-ui'
+import { NButton, NEmpty, NInput, NInputNumber, NSelect, NSpace, useDialog, useMessage } from 'naive-ui'
 import type { Profile, RuleProvider } from '../api/types'
 
 const profile = defineModel<Profile>({ required: true })
@@ -64,9 +64,9 @@ function remove(index: number) {
 
 <template>
   <NSpace vertical>
-    <NAlert type="info">规则集是远程维护的规则列表，在「规则」中用 RULE-SET 类型引用。mrs 格式只支持 domain 和 ipcidr。</NAlert>
+    <p class="hint">规则集是远程维护的规则列表，在「规则」中用 RULE-SET 类型引用。mrs 格式只支持 domain 和 ipcidr。</p>
     <NEmpty v-if="!profile.rule_providers.length" description="还没有规则集" />
-    <div v-for="(p, i) in profile.rule_providers" :key="i" class="row">
+    <div v-for="(p, i) in profile.rule_providers" :key="i" class="edit-row">
       <NInput
         :value="drafts[i] ?? p.name"
         style="width: 180px"
@@ -86,7 +86,7 @@ function remove(index: number) {
         style="width: 90px"
         @update:value="(v: unknown) => (p.format = v as RuleProvider['format'])"
       />
-      <NInput v-model:value="p.url" placeholder="https://..." style="flex: 1" />
+      <NInput v-model:value="p.url" class="mono" placeholder="https://..." style="flex: 1; min-width: 220px" />
       <NInputNumber
         :value="p.interval"
         :min="60"
@@ -95,7 +95,7 @@ function remove(index: number) {
       >
         <template #suffix>秒</template>
       </NInputNumber>
-      <span class="usage">{{ usage(p.name) }} 条规则</span>
+      <span class="usage"><span class="mono">{{ usage(p.name) }}</span> 条规则引用</span>
       <NButton size="tiny" quaternary type="error" @click="remove(i)">✕</NButton>
     </div>
     <NButton dashed block @click="add">添加规则集</NButton>
@@ -103,13 +103,14 @@ function remove(index: number) {
 </template>
 
 <style scoped>
-.row {
-  align-items: center;
-  display: flex;
-  gap: 8px;
+.hint {
+  color: var(--rf-muted);
+  font-size: 13px;
+  margin: 0 0 4px;
 }
 .usage {
-  color: #999;
-  width: 70px;
+  color: var(--rf-muted);
+  font-size: 13px;
+  white-space: nowrap;
 }
 </style>

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue'
 import {
-  NAlert, NButton, NDataTable, NForm, NFormItem, NInput, NInputNumber, NModal, NRadioButton, NRadioGroup, NSpace,
-  NTag, NText, useDialog, useMessage, type DataTableColumns,
+  NAlert, NButton, NDataTable, NEmpty, NForm, NFormItem, NInput, NInputNumber, NModal, NRadioButton, NRadioGroup, NSpace,
+  NTag, NTooltip, useDialog, useMessage, type DataTableColumns,
 } from 'naive-ui'
 import { api } from '../api'
 import type { LineError, Source, SourceKind } from '../api/types'
 import { formatBytes, formatEpoch, formatTime } from '../lib/format'
+import PageHeader from '../components/PageHeader.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -137,46 +138,70 @@ function trafficText(s: Source): string {
 }
 
 const columns: DataTableColumns<Source> = [
-  { title: '名称', key: 'name' },
+  { title: '名称', key: 'name', minWidth: 140, render: (s) => h('strong', { style: 'font-weight: 600' }, s.name) },
   {
     title: '类型',
     key: 'kind',
+    width: 100,
     render: (s) =>
-      h(NTag, { size: 'small', type: s.kind === 'subscription' ? 'info' : 'default' }, () =>
+      h(NTag, { size: 'small', bordered: false, type: s.kind === 'subscription' ? 'info' : 'default' }, () =>
         s.kind === 'subscription' ? '机场订阅' : '手动'),
   },
-  { title: '节点数', key: 'node_count' },
-  { title: '上次拉取', key: 'last_fetched_at', render: (s) => (s.kind === 'subscription' ? formatTime(s.last_fetched_at) : '—') },
+  { title: '节点', key: 'node_count', width: 72, align: 'right', render: (s) => h('span', { class: 'mono' }, s.node_count) },
   {
     title: '状态',
     key: 'last_error',
-    render: (s) =>
-      s.last_error ? h(NText, { type: 'error' }, () => s.last_error) : h(NText, { type: 'success' }, () => '正常'),
+    minWidth: 160,
+    render: (s) => {
+      if (!s.last_error) return h('span', { class: 'status status--ok' }, '正常')
+      return h(NTooltip, { style: 'max-width: 420px' }, {
+        trigger: () => h('span', { class: 'status status--error', style: 'cursor: help' }, '拉取失败'),
+        default: () => s.last_error,
+      })
+    },
   },
-  { title: '流量', key: 'userinfo', render: trafficText },
   {
-    title: '操作',
-    key: 'actions',
+    title: '上次拉取',
+    key: 'last_fetched_at',
+    width: 170,
     render: (s) =>
-      h(NSpace, { size: 'small' }, () => [
+      s.kind === 'subscription' ? h('span', { class: 'mono muted' }, formatTime(s.last_fetched_at)) : h('span', { class: 'muted' }, '—'),
+  },
+  { title: '流量', key: 'userinfo', minWidth: 150, render: (s) => h('span', { class: 'muted' }, trafficText(s)) },
+  {
+    title: '',
+    key: 'actions',
+    width: 236,
+    align: 'right',
+    render: (s) =>
+      h(NSpace, { size: 'small', justify: 'end', wrap: false }, () => [
         s.kind === 'subscription'
-          ? h(NButton, { size: 'small', onClick: () => refresh(s) }, () => '立即刷新')
-          : h(NButton, { size: 'small', onClick: () => openImport(s) }, () => '导入链接'),
-        h(NButton, { size: 'small', onClick: () => openEdit(s) }, () => '编辑'),
-        h(NButton, { size: 'small', type: 'error', ghost: true, onClick: () => remove(s) }, () => '删除'),
+          ? h(NButton, { size: 'small', secondary: true, type: 'primary', onClick: () => refresh(s) }, () => '立即刷新')
+          : h(NButton, { size: 'small', secondary: true, type: 'primary', onClick: () => openImport(s) }, () => '导入链接'),
+        h(NButton, { size: 'small', quaternary: true, onClick: () => openEdit(s) }, () => '编辑'),
+        h(NButton, { size: 'small', quaternary: true, type: 'error', onClick: () => remove(s) }, () => '删除'),
       ]),
   },
 ]
 </script>
 
 <template>
-  <NSpace vertical size="large">
-    <NSpace justify="space-between" align="center">
-      <h2 style="margin: 0">节点源</h2>
-      <NButton type="primary" @click="openCreate">新建节点源</NButton>
-    </NSpace>
-    <NDataTable :columns="columns" :data="sources" :loading="loading" :row-key="(s: Source) => s.id" />
-  </NSpace>
+  <PageHeader title="节点源" description="机场订阅会按设定的间隔自动刷新；手动节点源用来存放你自己粘贴的分享链接。">
+    <NButton type="primary" @click="openCreate">新建节点源</NButton>
+  </PageHeader>
+  <NDataTable
+    :columns="columns"
+    :data="sources"
+    :loading="loading"
+    :row-key="(s: Source) => s.id"
+    :scroll-x="980"
+  >
+    <template #empty>
+      <NEmpty description="还没有节点源。添加一个机场订阅，或新建手动节点源后粘贴分享链接。">
+        <template #extra><NButton size="small" type="primary" @click="openCreate">新建节点源</NButton></template>
+      </NEmpty>
+    </template>
+  </NDataTable>
 
   <NModal v-model:show="showForm" preset="card" :title="editing ? '编辑节点源' : '新建节点源'" style="width: 520px">
     <NForm label-placement="left" label-width="96">
@@ -188,7 +213,7 @@ const columns: DataTableColumns<Source> = [
       </NFormItem>
       <NFormItem label="名称"><NInput v-model:value="form.name" /></NFormItem>
       <template v-if="form.kind === 'subscription'">
-        <NFormItem label="订阅链接"><NInput v-model:value="form.url" placeholder="https://..." /></NFormItem>
+        <NFormItem label="订阅链接"><NInput v-model:value="form.url" class="mono" placeholder="https://..." /></NFormItem>
         <NFormItem label="刷新间隔">
           <NInputNumber
             :value="form.refresh_interval"
@@ -221,6 +246,7 @@ const columns: DataTableColumns<Source> = [
       v-model:value="importText"
       type="textarea"
       :rows="10"
+      class="mono"
       placeholder="每行一个 ss:// vmess:// vless:// trojan:// hysteria2:// tuic:// 链接"
     />
     <NAlert v-if="importErrors.length" type="warning" title="以下行未能导入" style="margin-top: 12px">

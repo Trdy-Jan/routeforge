@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NAlert, NButton, NEmpty, NRadioButton, NRadioGroup, NSelect, NSpace } from 'naive-ui'
+import { NButton, NEmpty, NRadioButton, NRadioGroup, NSelect, NSpace } from 'naive-ui'
 import type { Chain, NodeItem, Profile } from '../api/types'
 
 const profile = defineModel<Profile>({ required: true })
@@ -35,13 +35,13 @@ function remove(i: number) {
 
 <template>
   <NSpace vertical>
-    <NAlert type="info">
-      链式代理：落地节点经由「前置」（分组或节点）出站，生成的配置中为 Mihomo 的 dialer-proxy。
+    <p class="hint">
+      落地节点经由「前置」（分组或节点）出站，生成的配置中为 Mihomo 的 dialer-proxy。
       落地节点本身需要出现在某个分组里才会生效，且前置不能包含该落地节点。
-    </NAlert>
+    </p>
     <NEmpty v-if="!profile.chains.length" description="还没有链式代理" />
-    <div v-for="(c, i) in profile.chains" :key="i" class="row">
-      <span>落地节点</span>
+    <div v-for="(c, i) in profile.chains" :key="i" class="edit-row">
+      <span class="edit-row__label">落地节点</span>
       <NSelect
         :value="c.node.node_id"
         :options="nodeOptions"
@@ -49,7 +49,7 @@ function remove(i: number) {
         style="width: 240px"
         @update:value="(v: unknown) => (c.node = { kind: 'node', node_id: v as number })"
       />
-      <span>经由</span>
+      <span class="edit-row__label">经由</span>
       <NRadioGroup :value="c.via.kind" @update:value="(v: unknown) => setViaKind(c, v as 'group' | 'node')">
         <NRadioButton value="group">分组</NRadioButton>
         <NRadioButton value="node">节点</NRadioButton>
@@ -68,9 +68,11 @@ function remove(i: number) {
 </template>
 
 <style scoped>
-.row {
-  align-items: center;
-  display: flex;
-  gap: 8px;
+.hint {
+  color: var(--rf-muted);
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0 0 4px;
+  max-width: 72ch;
 }
 </style>
