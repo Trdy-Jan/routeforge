@@ -103,6 +103,10 @@ def test_unknown_group_ref_and_rule_target_are_errors():
     assert not result.ok
     assert any("Nope" in e for e in result.errors)
     assert any("Ghost" in e for e in result.errors)
+    assert [i.message for i in result.issues] == result.errors
+    sections = {i.section for i in result.issues}
+    assert sections == {"groups", "rules"}
+    assert all(i.hint for i in result.issues)
 
 
 def test_duplicate_or_reserved_group_names_are_errors():

@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from routeforge.ir.profile import Profile
 from routeforge.renderers import RenderResult, get_renderer
-from routeforge.resolver import resolve
+from routeforge.resolver import Issue, resolve
 from routeforge.services.library import load_library
 
 
@@ -16,6 +16,7 @@ class RenderOutcome:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     source_ids: list[int] = field(default_factory=list)
+    issues: list[Issue] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -26,7 +27,7 @@ def render_profile(session: Session, profile: Profile, target: str) -> RenderOut
     renderer = get_renderer(target)
     resolved = resolve(profile, load_library(session))
     if not resolved.ok:
-        return RenderOutcome(result=None, errors=resolved.errors, warnings=resolved.warnings)
+        return RenderOutcome(result=None, errors=resolved.errors, warnings=resolved.warnings, issues=resolved.issues)
     result = renderer.render(resolved.profile)
     return RenderOutcome(
         result=result,

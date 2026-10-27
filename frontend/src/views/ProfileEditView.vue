@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, h, onMounted, onUnmounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
-import { NButton, NDropdown, NInput, NResult, NSpace, NSpin, NTabPane, NTabs, useMessage } from 'naive-ui'
+import { NAlert, NButton, NDropdown, NInput, NResult, NSpace, NSpin, NTabPane, NTabs, useMessage } from 'naive-ui'
 import { api } from '../api'
-import type { NodeItem, Profile, ProfileDetail, Source, TemplateInfo } from '../api/types'
+import type { IssueSection, NodeItem, Preview, Profile, ProfileDetail, Source, TemplateInfo } from '../api/types'
 import ChainEditor from '../components/ChainEditor.vue'
 import GroupEditor from '../components/GroupEditor.vue'
+import IssueList from '../components/IssueList.vue'
 import PreviewPanel from '../components/PreviewPanel.vue'
 import ProviderEditor from '../components/ProviderEditor.vue'
 import RuleEditor from '../components/RuleEditor.vue'
@@ -17,23 +18,55 @@ const message = useMessage()
 const detail = ref<ProfileDetail | null>(null)
 const profile = ref<Profile | null>(null)
 const savedJson = ref('')
-const version = ref(0)
 const templates = ref<TemplateInfo[]>([])
 const nodes = ref<NodeItem[]>([])
 const sources = ref<Source[]>([])
 const saving = ref(false)
 const loadError = ref<string | null>(null)
+const tab = ref<IssueSection | 'preview'>('groups')
+const preview = ref<Preview | null>(null)
+const previewLoading = ref(false)
 
 const dirty = computed(() => profile.value !== null && JSON.stringify(profile.value) !== savedJson.value)
 const templateOptions = computed(() =>
   templates.value.map((t) => ({ label: t.name, key: t.id, props: { title: t.description } })),
 )
 
+const issues = computed(() => preview.value?.issues ?? [])
+
+function issueCount(section: IssueSection): number {
+  return issues.value.filter((i) => i.section === section).length
+}
+
+// 标签页标题：有错误时在后面显示红色计数
+function tabLabel(label: string, section: IssueSection) {
+  return () => {
+    const n = issueCount(section)
+    return h('span', [label, n ? h('span', { class: 'tab-err', title: `${n} 处错误` }, n) : null])
+  }
+}
+
 function setDetail(d: ProfileDetail) {
   detail.value = d
   profile.value = structuredClone(d.profile)
   savedJson.value = JSON.stringify(d.profile)
-  version.value++
+}
+
+let previewSeq = 0
+async function loadPreview(): Promise<Preview | null> {
+  if (!detail.value) return null
+  const mine = ++previewSeq
+  previewLoading.value = true
+  try {
+    const r = await api.preview(detail.value.id)
+    if (mine === previewSeq) preview.value = r
+    return r
+  } catch (e) {
+    if (mine === previewSeq) message.error((e as Error).message)
+    return null
+  } finally {
+    if (mine === previewSeq) previewLoading.value = false
+  }
 }
 
 async function load() {
@@ -46,6 +79,7 @@ async function load() {
     nodes.value = n
     sources.value = s
     setDetail(d)
+    loadPreview()
   } catch (e) {
     loadError.value = (e as Error).message
   }
@@ -57,7 +91,14 @@ async function save(): Promise<boolean> {
   saving.value = true
   try {
     setDetail(await api.saveProfile(props.id, profile.value))
-    message.success('已保存')
+    const p = await loadPreview()
+    if (p?.issues.length) {
+      message.warning(`已保存，但方案有 ${p.issues.length} 处错误，订阅链接不会更新。请按页面上方的提示修改。`, {
+        duration: 8000,
+      })
+    } else {
+      message.success('已保存')
+    }
     return true
   } catch (e) {
     message.error((e as Error).message)
@@ -73,6 +114,7 @@ async function applyTemplate(key: string | number) {
   try {
     const r = await api.applyTemplate(props.id, String(key))
     setDetail(r.profile)
+    loadPreview()
     r.notes.forEach((n) => message.info(n))
     message.success('模板已套用')
   } catch (e) {
@@ -124,18 +166,27 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         </div>
       </div>
 
+      <NAlert
+        v-if="issues.length && tab !== 'preview'"
+        type="error"
+        class="issues-banner"
+        :title="`已保存的方案有 ${issues.length} 处错误，订阅链接会继续返回上次成功的版本`"
+      >
+        <IssueList :issues="issues" @goto="tab = $event" />
+      </NAlert>
+
       <div class="surface editor">
-        <NTabs type="line" default-value="groups" animated size="large" :tabs-padding="20">
-          <NTabPane name="groups" tab="分组">
+        <NTabs v-model:value="tab" type="line" animated size="large" :tabs-padding="20">
+          <NTabPane name="groups" :tab="tabLabel('分组', 'groups')">
             <GroupEditor v-model="profile" :nodes="nodes" :sources="sources" />
           </NTabPane>
-          <NTabPane name="rules" :tab="`规则 ${profile.rules.length || ''}`">
+          <NTabPane name="rules" :tab="tabLabel(`规则 ${profile.rules.length || ''}`, 'rules')">
             <RuleEditor v-model="profile" />
           </NTabPane>
-          <NTabPane name="providers" tab="规则集">
+          <NTabPane name="providers" :tab="tabLabel('规则集', 'providers')">
             <ProviderEditor v-model="profile" />
           </NTabPane>
-          <NTabPane name="chains" tab="链式代理">
+          <NTabPane name="chains" :tab="tabLabel('链式代理', 'chains')">
             <ChainEditor v-model="profile" :nodes="nodes" />
           </NTabPane>
           <NTabPane name="preview" tab="预览与订阅">
@@ -143,7 +194,10 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
               :profile-id="detail.id"
               :token="detail.token"
               :dirty="dirty"
-              :version="version"
+              :preview="preview"
+              :loading="previewLoading"
+              @reload="loadPreview"
+              @goto="tab = $event"
               @rotated="onRotated"
             />
           </NTabPane>
@@ -185,6 +239,21 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
 }
 .editor {
   padding: 4px 0 20px;
+}
+.issues-banner {
+  margin-bottom: 16px;
+}
+.editor :deep(.tab-err) {
+  background: var(--rf-error);
+  border-radius: 9px;
+  color: #fff;
+  display: inline-block;
+  font-size: 12px;
+  line-height: 18px;
+  margin-left: 6px;
+  min-width: 18px;
+  padding: 0 5px;
+  text-align: center;
 }
 .editor :deep(.n-tab-pane) {
   padding: 20px 20px 0;

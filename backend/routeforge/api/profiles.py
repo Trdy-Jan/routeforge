@@ -41,11 +41,18 @@ class ApplyTemplateOut(BaseModel):
     notes: list[str]
 
 
+class IssueOut(BaseModel):
+    section: str
+    message: str
+    hint: str
+
+
 class PreviewOut(BaseModel):
     ok: bool
     content: str | None
     errors: list[str]
     warnings: list[str]
+    issues: list[IssueOut]
 
 
 def _get(session: Session, profile_id: int) -> ProfileRow:
@@ -131,4 +138,5 @@ def preview(profile_id: int, session: SessionDep, target: str = "mihomo") -> Pre
         content=outcome.result.content if outcome.result else None,
         errors=outcome.errors,
         warnings=outcome.warnings,
+        issues=[IssueOut(section=i.section, message=i.message, hint=i.hint) for i in outcome.issues],
     )

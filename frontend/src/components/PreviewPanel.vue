@@ -1,35 +1,24 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { NAlert, NButton, NInput, NInputGroup, NSpace, useDialog, useMessage } from 'naive-ui'
 import { api } from '../api'
-import type { Preview, ProfileDetail } from '../api/types'
+import type { IssueSection, Preview, ProfileDetail } from '../api/types'
 import { copyText } from '../lib/clipboard'
 import { subscriptionUrl } from '../lib/profile'
+import IssueList from './IssueList.vue'
 
-const props = defineProps<{ profileId: number; token: string; dirty: boolean; version: number }>()
-const emit = defineEmits<{ rotated: [detail: ProfileDetail] }>()
+const props = defineProps<{
+  profileId: number
+  token: string
+  dirty: boolean
+  preview: Preview | null
+  loading: boolean
+}>()
+const emit = defineEmits<{ rotated: [detail: ProfileDetail]; reload: []; goto: [section: IssueSection] }>()
 const message = useMessage()
 const dialog = useDialog()
 
-const preview = ref<Preview | null>(null)
-const loading = ref(false)
 const url = computed(() => subscriptionUrl(window.location.origin, props.token))
-
-let seq = 0
-async function load() {
-  const mine = ++seq
-  loading.value = true
-  try {
-    const r = await api.preview(props.profileId)
-    if (mine === seq) preview.value = r
-  } catch (e) {
-    if (mine === seq) message.error((e as Error).message)
-  } finally {
-    if (mine === seq) loading.value = false
-  }
-}
-onMounted(load)
-watch(() => props.version, load)
 
 async function copy() {
   if (await copyText(url.value)) message.success('已复制订阅链接')
@@ -70,7 +59,7 @@ function rotate() {
 
     <template v-if="preview">
       <NAlert v-if="preview.errors.length" type="error" title="方案有错误，无法生成配置（订阅链接会继续返回上次成功的版本）">
-        <ul class="list"><li v-for="(e, i) in preview.errors" :key="i">{{ e }}</li></ul>
+        <IssueList :issues="preview.issues" @goto="emit('goto', $event)" />
       </NAlert>
       <NAlert v-if="preview.warnings.length" type="warning" title="警告">
         <ul class="list"><li v-for="(w, i) in preview.warnings" :key="i">{{ w }}</li></ul>
@@ -80,7 +69,7 @@ function rotate() {
     <section class="code">
       <div class="code__bar">
         <span>生成的 Mihomo 配置</span>
-        <NButton size="tiny" quaternary class="code__btn" :loading="loading" @click="load">重新生成</NButton>
+        <NButton size="tiny" quaternary class="code__btn" :loading="loading" @click="emit('reload')">重新生成</NButton>
       </div>
       <pre v-if="preview?.content" class="yaml">{{ preview.content }}</pre>
       <p v-else class="code__empty">{{ loading ? '正在生成…' : preview?.errors.length ? '修正上面的错误并保存后，这里会显示生成的配置。' : '没有可显示的配置。' }}</p>

@@ -65,6 +65,8 @@ def test_preview_renders_or_reports_errors(admin):
     broken = admin.get(f"/api/profiles/{p['id']}/preview").json()
     assert broken["ok"] is False and broken["content"] is None
     assert any("MATCH" in e for e in broken["errors"])
+    issue = next(i for i in broken["issues"] if "MATCH" in i["message"])
+    assert issue["section"] == "rules" and "漏网之鱼" in issue["hint"]
 
     assert admin.get(f"/api/profiles/{p['id']}/preview", params={"target": "surge"}).status_code == 400
 

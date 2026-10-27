@@ -133,11 +133,20 @@ export interface ProfileDetail {
   profile: Profile
 }
 
+export type IssueSection = 'groups' | 'rules' | 'providers' | 'chains'
+
+export interface Issue {
+  section: IssueSection
+  message: string
+  hint: string
+}
+
 export interface Preview {
   ok: boolean
   content: string | null
   errors: string[]
   warnings: string[]
+  issues: Issue[]
 }
 
 export interface TemplateInfo {

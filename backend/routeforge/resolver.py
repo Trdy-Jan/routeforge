@@ -19,11 +19,21 @@ class LibraryNode:
     node: Node
 
 
+@dataclass(frozen=True)
+class Issue:
+    """一条错误的结构化信息：section 对应前端编辑器的标签页，hint 是修复建议。"""
+
+    section: str  # "groups" | "rules" | "providers" | "chains"
+    message: str
+    hint: str
+
+
 @dataclass
 class ResolveResult:
     profile: ResolvedProfile | None
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    issues: list[Issue] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -56,7 +66,12 @@ class _Resolver:
         self.library = library
         self.by_id = {n.id: n for n in library}
         self.errors: list[str] = []
+        self.issues: list[Issue] = []
         self.warnings: list[str] = []
+
+    def _error(self, section: str, message: str, hint: str) -> None:
+        self.errors.append(message)
+        self.issues.append(Issue(section, message, hint))
 
     def run(self) -> ResolveResult:
         group_names = self._check_group_names()
@@ -68,16 +83,16 @@ class _Resolver:
         self._check_cycles(expanded, chains)
         self._check_rules(group_names)
         if self.errors:
-            return ResolveResult(None, self.errors, self.warnings)
+            return ResolveResult(None, self.errors, self.warnings, self.issues)
         return ResolveResult(self._build(expanded, chains, used, names), [], self.warnings)
 
     def _check_group_names(self) -> set[str]:
         names: set[str] = set()
         for g in self.profile.groups:
             if g.name in BUILTIN_TARGETS:
-                self.errors.append(f"分组名不能使用保留名「{g.name}」")
+                self._error("groups", f"分组名不能使用保留名「{g.name}」", "DIRECT、REJECT 等是内置目标，请给这个分组换个名字")
             elif g.name in names:
-                self.errors.append(f"分组名重复：「{g.name}」")
+                self._error("groups", f"分组名重复：「{g.name}」", "重命名或删除其中一个同名分组")
             names.add(g.name)
         return names
 
@@ -103,7 +118,7 @@ class _Resolver:
         try:
             return match_filter(self.library, f)
         except re.error as e:
-            self.errors.append(f"分组「{group_name}」的过滤器正则无效：{e}")
+            self._error("groups", f"分组「{group_name}」的过滤器正则无效：{e}", "打开该分组，修正过滤器的正则表达式（常见原因：括号未闭合、多余的反斜杠）")
             return []
 
     def _resolve_chains(self, group_names: set[str]) -> dict[int, Entry]:
@@ -115,19 +130,19 @@ class _Resolver:
                 self.warnings.append(f"链式代理的落地节点 #{c.node.node_id} 不存在或已禁用，已忽略")
                 continue
             if ln.id in seen:
-                self.errors.append(f"落地节点「{ln.node.name}」配置了多条链式代理")
+                self._error("chains", f"落地节点「{ln.node.name}」配置了多条链式代理", "同一个落地节点只能保留一条链式代理")
                 continue
             seen.add(ln.id)
             match c.via:
                 case GroupRef(name=name):
                     if name not in group_names:
-                        self.errors.append(f"链式代理「{ln.node.name}」的前置分组「{name}」不存在")
+                        self._error("chains", f"链式代理「{ln.node.name}」的前置分组「{name}」不存在", "改选一个存在的前置分组，或在「分组」中新建该分组")
                         continue
                     chains[ln.id] = ("group", name)
                 case NodeRef(node_id=vid):
                     v = self.by_id.get(vid)
                     if v is None or not v.enabled:
-                        self.errors.append(f"链式代理「{ln.node.name}」的前置节点 #{vid} 不存在或已禁用")
+                        self._error("chains", f"链式代理「{ln.node.name}」的前置节点 #{vid} 不存在或已禁用", "改选前置节点，或到「节点」页面重新启用它")
                         continue
                     chains[ln.id] = ("node", vid)
         return chains
@@ -176,7 +191,7 @@ class _Resolver:
         for g, entries in expanded.items():
             for kind, value in entries:
                 if kind == "group" and value not in group_names:
-                    self.errors.append(f"分组「{g}」引用了不存在的分组「{value}」")
+                    self._error("groups", f"分组「{g}」引用了不存在的分组「{value}」", f"从「{g}」中移除「{value}」，或新建名为「{value}」的分组")
 
     def _check_cycles(self, expanded: dict[str, list[Entry]], chains: dict[int, Entry]) -> None:
         graph: dict[Entry, list[Entry]] = {}
@@ -193,7 +208,11 @@ class _Resolver:
             for w in graph.get(v, []):
                 if state.get(w) == 1:
                     cycle = stack[stack.index(w):] + [w]
-                    self.errors.append("检测到循环引用：" + " → ".join(self._label(x) for x in cycle))
+                    self._error(
+                        "groups",
+                        "检测到循环引用：" + " → ".join(self._label(x) for x in cycle),
+                        "分组之间（含链式代理）不能互相包含，移除环上任意一个引用即可",
+                    )
                 elif w not in state:
                     visit(w, stack)
             stack.pop()
@@ -211,24 +230,32 @@ class _Resolver:
         rules = self.profile.rules
         matches = [i for i, r in enumerate(rules) if r.type == "MATCH"]
         if len(matches) != 1 or matches[0] != len(rules) - 1:
-            self.errors.append("规则必须以且仅以一条 MATCH 规则结尾")
+            self._error(
+                "rules",
+                "规则必须以且仅以一条 MATCH 规则结尾",
+                f"当前有 {len(matches)} 条 MATCH 规则：保留一条并移到最后，或套用「漏网之鱼」模板",
+            )
         provider_names = [p.name for p in self.profile.rule_providers]
         if len(provider_names) != len(set(provider_names)):
-            self.errors.append("规则集名称重复")
+            self._error("providers", "规则集名称重复", "重命名或删除重名的规则集")
         for p in self.profile.rule_providers:
             if not p.name or any(bad in p.name for bad in ("/", "\\", ",", "..")):
-                self.errors.append(f"规则集名称「{p.name}」无效：不能为空，也不能包含 / \\ , ..")
+                self._error("providers", f"规则集名称「{p.name}」无效：不能为空，也不能包含 / \\ , ..", "修改这个规则集的名称")
             if p.format == "mrs" and p.behavior == "classical":
-                self.errors.append(f"规则集「{p.name}」：mrs 格式只支持 domain / ipcidr")
+                self._error("providers", f"规则集「{p.name}」：mrs 格式只支持 domain / ipcidr", "把格式改为 yaml / text，或把类型改为 domain / ipcidr")
         for r in rules:
             if r.type != "MATCH" and not r.value:
-                self.errors.append(f"规则「{r.type}」缺少值")
+                self._error("rules", f"规则「{r.type}」缺少值", "为这条规则填写匹配值，或删除它")
             if "," in r.value or "," in r.target:
-                self.errors.append(f"规则「{r.type},{r.value}」的值或目标「{r.target}」不能包含逗号「,」")
+                self._error("rules", f"规则「{r.type},{r.value}」的值或目标「{r.target}」不能包含逗号「,」", "每条规则只能写一个值，多个值请拆成多条规则")
             if r.target not in group_names and r.target not in BUILTIN_TARGETS:
-                self.errors.append(f"规则「{r.type},{r.value}」的目标「{r.target}」不存在")
+                self._error(
+                    "rules",
+                    f"规则「{r.type},{r.value}」的目标「{r.target}」不存在",
+                    f"把目标改为已有分组，或在「分组」中新建名为「{r.target}」的分组",
+                )
             if r.type == "RULE-SET" and r.value not in provider_names:
-                self.errors.append(f"规则引用的规则集「{r.value}」不存在")
+                self._error("rules", f"规则引用的规则集「{r.value}」不存在", f"在「规则集」中添加名为「{r.value}」的规则集，或删除这条 RULE-SET 规则")
 
     def _build(self, expanded, chains, used, names) -> ResolvedProfile:
         proxies: list[Node] = []
