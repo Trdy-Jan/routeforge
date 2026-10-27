@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NAlert, NButton, NCard, NForm, NFormItem, NInput } from 'naive-ui'
 import { api } from '../api'
+import { ApiError } from '../api/client'
+import { cookieNotSavedHint } from '../lib/session'
 import { markLoggedIn } from '../router'
 
 const route = useRoute()
@@ -16,6 +18,15 @@ async function submit() {
   error.value = ''
   try {
     await api.login(password.value)
+    try {
+      await api.me()
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        error.value = cookieNotSavedHint(window.location.protocol)
+        return
+      }
+      throw e
+    }
     markLoggedIn()
     const raw = route.query.redirect
     const redirect = typeof raw === 'string' && /^\/(?!\/)/.test(raw) ? raw : '/'

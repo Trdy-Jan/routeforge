@@ -3,7 +3,8 @@ services:
     build: .
     image: routeforge:latest
     restart: unless-stopped
-    # 只监听本机，由宿主机上的反向代理（Caddy / Nginx）提供 HTTPS
+    # 只监听本机，由宿主机上的反向代理（Caddy / Nginx）提供 HTTPS。
+    # 仅在局域网用 HTTP 访问时，可改为 "8000:8000"（勿暴露到公网）。
     ports:
       - "127.0.0.1:8000:8000"
     environment:

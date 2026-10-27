@@ -25,6 +25,21 @@ from routeforge.web import mount_frontend
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH"}
 
 
+class _SchemeAwareSessionMiddleware:
+    """auto 模式：HTTPS 请求下发 Secure cookie，HTTP 请求下发普通 cookie。
+
+    scheme 来自 uvicorn；反代时需信任其 X-Forwarded-Proto（见 ROUTEFORGE_FORWARDED_ALLOW_IPS）。
+    """
+
+    def __init__(self, app, **kwargs):
+        self._plain = SessionMiddleware(app, https_only=False, **kwargs)
+        self._secure = SessionMiddleware(app, https_only=True, **kwargs)
+
+    async def __call__(self, scope, receive, send):
+        mw = self._secure if scope.get("scheme") in ("https", "wss") else self._plain
+        await mw(scope, receive, send)
+
+
 def create_app(settings: Settings, *, http_client: httpx.Client | None = None,
                start_scheduler: bool = True) -> FastAPI:
     if settings.database_url.startswith("sqlite:///"):
@@ -64,14 +79,16 @@ def create_app(settings: Settings, *, http_client: httpx.Client | None = None,
                 return JSONResponse({"detail": "请求必须是 JSON"}, status_code=415)
         return await call_next(request)
 
-    app.add_middleware(
-        SessionMiddleware,
+    session_options = dict(
         secret_key=session_secret,
         session_cookie="routeforge_session",
         max_age=14 * 24 * 3600,
         same_site="lax",
-        https_only=settings.cookie_secure,
     )
+    if settings.cookie_secure is None:
+        app.add_middleware(_SchemeAwareSessionMiddleware, **session_options)
+    else:
+        app.add_middleware(SessionMiddleware, https_only=settings.cookie_secure, **session_options)
 
     app.include_router(auth_api.router)
     app.include_router(sources_api.router)

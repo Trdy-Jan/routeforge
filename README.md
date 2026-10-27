@@ -20,7 +20,10 @@ cp .env.example .env        # 编辑 .env，设置管理员密码
 docker compose up -d --build
 ```
 
-服务监听 `127.0.0.1:8000`，请在宿主机用反向代理提供 HTTPS（管理会话 cookie 默认只在 HTTPS 下发送）。Caddy 示例（默认的 `reverse_proxy` 即会正确设置 `X-Forwarded-For`）：
+服务默认监听 `127.0.0.1:8000`。HTTP 和 HTTPS 都可以访问：会话 cookie 默认是 `auto` 模式，HTTPS 访问时带 `Secure` 标记，HTTP 访问时不带。
+
+- **局域网直接用 HTTP**：把 `docker-compose.yml` 的端口改为 `"8000:8000"`（或其他端口），用 `http://<局域网 IP>:8000` 访问即可。注意此时密码和订阅 token 以明文传输，不要这样暴露到公网。
+- **公网**：保持只监听本机，在宿主机用反向代理提供 HTTPS。Caddy 示例（默认的 `reverse_proxy` 即会正确设置 `X-Forwarded-For` 和 `X-Forwarded-Proto`）：
 
 ```
 rf.example.com {
@@ -32,7 +35,10 @@ rf.example.com {
 
 ```
 proxy_set_header X-Forwarded-For $remote_addr;
+proxy_set_header X-Forwarded-Proto $scheme;
 ```
+
+`X-Forwarded-Proto` 让服务知道外部是 HTTPS，从而给 cookie 加上 `Secure` 标记。
 
 不要使用 `$proxy_add_x_forwarded_for`，它会保留客户端自带的值，可被用来伪造 IP 绕过限速。
 
@@ -46,7 +52,7 @@ proxy_set_header X-Forwarded-For $remote_addr;
 |---|---|---|
 | `ROUTEFORGE_ADMIN_PASSWORD` | — | 首次启动必填，之后不再读取 |
 | `ROUTEFORGE_DATA_DIR` | `/data`（镜像内） | SQLite 数据目录 |
-| `ROUTEFORGE_COOKIE_SECURE` | `true` | 仅在 HTTPS 下发送会话 cookie；纯 HTTP 内网使用时设为 `false` |
+| `ROUTEFORGE_COOKIE_SECURE` | `auto` | `auto`：按访问方式决定，HTTPS 下 cookie 带 `Secure`，HTTP 下不带；`true`：始终带 `Secure`（此时 HTTP 访问无法登录，登录页会提示）；`false`：始终不带 |
 | `ROUTEFORGE_FORWARDED_ALLOW_IPS` | `127.0.0.1` | 信任哪些反向代理的 `X-Forwarded-For`；`docker-compose.yml` 中默认为 `172.16.0.0/12`（Docker 桥接网段，宿主机反代经 Docker 网关访问容器）。Docker 使用自定义网段时需调整该 CIDR |
 | `ROUTEFORGE_HOST` / `ROUTEFORGE_PORT` | `0.0.0.0` / `8000` | 监听地址 |
 
@@ -76,7 +82,7 @@ docker compose up -d
 cd backend
 uv sync
 uv run pytest
-ROUTEFORGE_ADMIN_PASSWORD=pw ROUTEFORGE_COOKIE_SECURE=false uv run routeforge
+ROUTEFORGE_ADMIN_PASSWORD=pw uv run routeforge
 
 # 前端（另一个终端，开发服务器把 /api、/sub 代理到 8000 端口）
 cd frontend
