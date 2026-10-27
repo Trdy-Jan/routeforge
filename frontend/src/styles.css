@@ -1,0 +1,107 @@
+:root {
+  --rf-ink: #16324f;
+  --rf-ink-2: #1f4366;
+  --rf-ink-line: #3d5f80;
+  --rf-ink-text: #c4d2df;
+  --rf-primary: #0a7b83;
+  --rf-signal: #3fd0c9;
+  --rf-canvas: #eef2f5;
+  --rf-surface: #ffffff;
+  --rf-line: #dce3ea;
+  --rf-text: #1c2733;
+  --rf-muted: #5e6b78;
+  --rf-faint: #8a96a3;
+  --rf-warning: #c9820a;
+  --rf-error: #c8384b;
+  --rf-success: #2f8f57;
+  --rf-sans: "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei UI",
+    "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  --rf-mono: "JetBrains Mono", "Cascadia Mono", "SF Mono", Consolas, "Microsoft YaHei UI", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--rf-canvas);
+  color: var(--rf-text);
+  font-family: var(--rf-sans);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 技术字符串：地址、端口、链接、计数 */
+.mono {
+  font-family: var(--rf-mono);
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--rf-muted);
+}
+
+/* 状态：圆点 + 文字 */
+.status {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  max-width: 100%;
+  white-space: nowrap;
+}
+.status::before {
+  background: currentColor;
+  border-radius: 50%;
+  content: "";
+  flex: none;
+  height: 7px;
+  width: 7px;
+}
+.status--ok {
+  color: var(--rf-success);
+}
+.status--error {
+  color: var(--rf-error);
+}
+.status--off {
+  color: var(--rf-faint);
+}
+
+/* 白色内容面：表格、编辑器 */
+.surface {
+  background: var(--rf-surface);
+  border: 1px solid var(--rf-line);
+  border-radius: 10px;
+}
+
+/* 编辑器里的一行（规则 / 规则集 / 链式代理） */
+.edit-row {
+  align-items: center;
+  border-bottom: 1px solid #edf1f4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 4px;
+}
+.edit-row:last-of-type {
+  border-bottom: 0;
+}
+.edit-row__label {
+  color: var(--rf-muted);
+  font-size: 13px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--rf-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

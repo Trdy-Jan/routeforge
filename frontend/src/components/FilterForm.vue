@@ -41,16 +41,16 @@ async function test() {
       />
     </NFormItem>
     <NFormItem label="名称匹配">
-      <NInput v-model:value="form.name_regex" placeholder="正则，例如 香港|HK；留空匹配全部" />
+      <NInput v-model:value="form.name_regex" class="mono" placeholder="正则，例如 香港|HK；留空匹配全部" />
     </NFormItem>
     <NFormItem label="排除">
-      <NInput v-model:value="form.exclude_regex" placeholder="正则，可选，例如 过期|剩余" />
+      <NInput v-model:value="form.exclude_regex" class="mono" placeholder="正则，可选，例如 过期|剩余" />
     </NFormItem>
   </NForm>
   <NAlert v-if="error" type="error">{{ error }}</NAlert>
-  <div v-if="matched">
-    匹配到 {{ matched.length }} 个节点：
-    <NTag v-for="n in matched.slice(0, 30)" :key="n.id" size="small" style="margin: 2px">{{ n.name }}</NTag>
+  <div v-if="matched" class="matched">
+    <div class="matched__count">匹配到 <span class="mono">{{ matched.length }}</span> 个节点</div>
+    <NTag v-for="n in matched.slice(0, 30)" :key="n.id" size="small" :bordered="false" style="margin: 2px">{{ n.name }}</NTag>
     <span v-if="matched.length > 30">…</span>
   </div>
   <NSpace justify="end" style="margin-top: 12px">
@@ -58,3 +58,16 @@ async function test() {
     <NButton type="primary" @click="emit('submit', toFilter())">添加</NButton>
   </NSpace>
 </template>
+
+<style scoped>
+.matched {
+  background: var(--rf-canvas);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.matched__count {
+  color: var(--rf-muted);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+</style>

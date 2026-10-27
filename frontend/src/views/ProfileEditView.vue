@@ -103,45 +103,96 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
     </template>
   </NResult>
   <NSpin v-else :show="!profile">
-    <NSpace v-if="profile && detail" vertical size="large">
-      <NSpace align="center" justify="space-between">
-        <NSpace align="center">
-          <NButton text @click="router.push({ name: 'profiles' })">← 返回</NButton>
-          <NInput v-model:value="profile.name" :disabled="saving" placeholder="方案名称" style="width: 240px" />
-        </NSpace>
-        <NSpace>
+    <div v-if="profile && detail">
+      <div class="editbar">
+        <NButton quaternary size="small" class="editbar__back" @click="router.push({ name: 'profiles' })">‹ 配置方案</NButton>
+        <NInput
+          v-model:value="profile.name"
+          :disabled="saving"
+          placeholder="方案名称"
+          class="editbar__name"
+          aria-label="方案名称"
+        />
+        <span v-if="dirty" class="status status--unsaved">未保存</span>
+        <div class="editbar__actions">
           <NDropdown :options="templateOptions" :disabled="saving" trigger="click" @select="applyTemplate">
             <NButton :disabled="saving">套用模板</NButton>
           </NDropdown>
           <NButton type="primary" :disabled="saving || !dirty || !profile.name.trim()" :loading="saving" @click="save">
             保存
           </NButton>
-        </NSpace>
-      </NSpace>
+        </div>
+      </div>
 
-      <NTabs type="line" default-value="groups" animated>
-        <NTabPane name="groups" tab="分组">
-          <GroupEditor v-model="profile" :nodes="nodes" :sources="sources" />
-        </NTabPane>
-        <NTabPane name="rules" tab="规则">
-          <RuleEditor v-model="profile" />
-        </NTabPane>
-        <NTabPane name="providers" tab="规则集">
-          <ProviderEditor v-model="profile" />
-        </NTabPane>
-        <NTabPane name="chains" tab="链式代理">
-          <ChainEditor v-model="profile" :nodes="nodes" />
-        </NTabPane>
-        <NTabPane name="preview" tab="预览与订阅">
-          <PreviewPanel
-            :profile-id="detail.id"
-            :token="detail.token"
-            :dirty="dirty"
-            :version="version"
-            @rotated="onRotated"
-          />
-        </NTabPane>
-      </NTabs>
-    </NSpace>
+      <div class="surface editor">
+        <NTabs type="line" default-value="groups" animated size="large" :tabs-padding="20">
+          <NTabPane name="groups" tab="分组">
+            <GroupEditor v-model="profile" :nodes="nodes" :sources="sources" />
+          </NTabPane>
+          <NTabPane name="rules" :tab="`规则 ${profile.rules.length || ''}`">
+            <RuleEditor v-model="profile" />
+          </NTabPane>
+          <NTabPane name="providers" tab="规则集">
+            <ProviderEditor v-model="profile" />
+          </NTabPane>
+          <NTabPane name="chains" tab="链式代理">
+            <ChainEditor v-model="profile" :nodes="nodes" />
+          </NTabPane>
+          <NTabPane name="preview" tab="预览与订阅">
+            <PreviewPanel
+              :profile-id="detail.id"
+              :token="detail.token"
+              :dirty="dirty"
+              :version="version"
+              @rotated="onRotated"
+            />
+          </NTabPane>
+        </NTabs>
+      </div>
+    </div>
   </NSpin>
 </template>
+
+<style scoped>
+.editbar {
+  align-items: center;
+  background: var(--rf-canvas);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: -32px -4px 0;
+  padding: 24px 4px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.editbar__back {
+  color: var(--rf-muted);
+}
+.editbar__name {
+  font-size: 18px;
+  font-weight: 600;
+  max-width: 320px;
+}
+.editbar__actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.status--unsaved {
+  color: var(--rf-warning);
+  font-size: 13px;
+}
+.editor {
+  padding: 4px 0 20px;
+}
+.editor :deep(.n-tab-pane) {
+  padding: 20px 20px 0;
+}
+@media (max-width: 860px) {
+  .editbar {
+    margin-top: -20px;
+    padding-top: 16px;
+  }
+}
+</style>

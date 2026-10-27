@@ -53,9 +53,9 @@ function remove(i: number) {
       规则需要以一条 MATCH 结尾（决定未匹配任何规则的流量走向）。
       <NButton text type="primary" @click="addMatch">添加 MATCH</NButton>
     </NAlert>
-    <NAlert type="info">规则从上到下依次匹配，命中第一条即停止。</NAlert>
-    <div v-for="(r, i) in profile.rules" :key="i" class="row">
-      <span class="idx">{{ i + 1 }}</span>
+    <p class="hint">规则从上到下依次匹配，命中第一条即停止。</p>
+    <div v-for="(r, i) in profile.rules" :key="i" class="edit-row" :class="{ 'edit-row--match': r.type === 'MATCH' }">
+      <span class="idx mono">{{ i + 1 }}</span>
       <NSelect
         :value="r.type"
         :options="typeOptions"
@@ -70,9 +70,9 @@ function remove(i: number) {
         style="width: 240px"
         @update:value="(v: unknown) => (r.value = String(v ?? ''))"
       />
-      <NInput v-else-if="r.type !== 'MATCH'" v-model:value="r.value" :placeholder="PLACEHOLDERS[r.type]" style="width: 240px" />
+      <NInput v-else-if="r.type !== 'MATCH'" v-model:value="r.value" class="mono" :placeholder="PLACEHOLDERS[r.type]" style="width: 240px" />
       <span v-else class="match-text">其余所有流量</span>
-      <span>→</span>
+      <span class="arrow" aria-hidden="true">→</span>
       <NSelect
         :value="r.target"
         :options="targets"
@@ -84,23 +84,30 @@ function remove(i: number) {
       <NButton size="tiny" quaternary @click="move(i, 1)">↓</NButton>
       <NButton size="tiny" quaternary type="error" @click="remove(i)">✕</NButton>
     </div>
-    <NButton dashed block @click="add">添加规则（插在 MATCH 之前）</NButton>
+    <NButton dashed block style="margin-top: 4px" @click="add">添加规则（插在 MATCH 之前）</NButton>
   </NSpace>
 </template>
 
 <style scoped>
-.row {
-  align-items: center;
-  display: flex;
-  gap: 8px;
+.hint {
+  color: var(--rf-muted);
+  font-size: 13px;
+  margin: 0 0 4px;
 }
 .idx {
-  color: #999;
+  color: var(--rf-faint);
   text-align: right;
   width: 28px;
 }
+.arrow {
+  color: var(--rf-faint);
+}
 .match-text {
-  color: #999;
+  color: var(--rf-muted);
   width: 240px;
+}
+.edit-row--match {
+  background: #f4f8f8;
+  border-radius: 6px;
 }
 </style>
