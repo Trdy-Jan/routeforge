@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { NAlert, NButton, NInput, NInputGroup, NSpace, useDialog, useMessage } from 'naive-ui'
+import { NAlert, NButton, NSpace, useDialog, useMessage } from 'naive-ui'
 import { api } from '../api'
 import type { IssueSection, Preview, ProfileDetail } from '../api/types'
-import { copyText } from '../lib/clipboard'
-import { subscriptionUrl } from '../lib/profile'
 import IssueList from './IssueList.vue'
+import SubscriptionLink from './SubscriptionLink.vue'
 
 const props = defineProps<{
   profileId: number
@@ -17,13 +15,6 @@ const props = defineProps<{
 const emit = defineEmits<{ rotated: [detail: ProfileDetail]; reload: []; goto: [section: IssueSection] }>()
 const message = useMessage()
 const dialog = useDialog()
-
-const url = computed(() => subscriptionUrl(window.location.origin, props.token))
-
-async function copy() {
-  if (await copyText(url.value)) message.success('已复制订阅链接')
-  else message.warning('无法访问剪贴板，请手动复制')
-}
 
 function rotate() {
   dialog.warning({
@@ -48,11 +39,9 @@ function rotate() {
     <section class="sub">
       <h3>订阅链接</h3>
       <p>在 Clash Verge Rev 等使用 Mihomo 内核的客户端中添加此链接。</p>
-      <NInputGroup>
-        <NInput :value="url" readonly class="mono" />
-        <NButton type="primary" @click="copy">复制</NButton>
+      <SubscriptionLink :token="token">
         <NButton secondary type="warning" @click="rotate">重置</NButton>
-      </NInputGroup>
+      </SubscriptionLink>
     </section>
 
     <NAlert v-if="dirty" type="warning">有未保存的修改：预览和订阅链接使用的是已保存的版本。</NAlert>

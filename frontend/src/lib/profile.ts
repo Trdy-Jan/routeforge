@@ -78,3 +78,7 @@ export function targetOptions(profile: Profile): string[] {
 export function subscriptionUrl(origin: string, token: string): string {
   return `${origin}/sub/${token}`
 }
+
+export function maskedSubscriptionUrl(origin: string, token: string): string {
+  return subscriptionUrl(origin, '•'.repeat(Math.min(token.length, 16)))
+}

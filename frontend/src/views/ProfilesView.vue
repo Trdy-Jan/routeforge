@@ -2,13 +2,12 @@
 import { h, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  NButton, NDataTable, NEmpty, NInput, NInputGroup, NModal, NSpace, useDialog, useMessage, type DataTableColumns,
+  NButton, NDataTable, NEmpty, NInput, NModal, NSpace, useDialog, useMessage, type DataTableColumns,
 } from 'naive-ui'
 import { api } from '../api'
 import type { ProfileSummary } from '../api/types'
-import { copyText } from '../lib/clipboard'
-import { subscriptionUrl } from '../lib/profile'
 import PageHeader from '../components/PageHeader.vue'
+import SubscriptionLink from '../components/SubscriptionLink.vue'
 
 const router = useRouter()
 const message = useMessage()
@@ -40,11 +39,6 @@ async function create() {
   } catch (e) {
     message.error((e as Error).message)
   }
-}
-
-async function copy(url: string) {
-  if (await copyText(url)) message.success('已复制订阅链接')
-  else message.warning('无法访问剪贴板，请手动复制')
 }
 
 function remove(p: ProfileSummary) {
@@ -83,13 +77,7 @@ const columns: DataTableColumns<ProfileSummary> = [
     title: '订阅链接',
     key: 'token',
     minWidth: 360,
-    render: (p) => {
-      const url = subscriptionUrl(window.location.origin, p.token)
-      return h(NInputGroup, null, () => [
-        h(NInput, { value: url, readonly: true, size: 'small', class: 'mono' }),
-        h(NButton, { size: 'small', secondary: true, type: 'primary', onClick: () => copy(url) }, () => '复制'),
-      ])
-    },
+    render: (p) => h(SubscriptionLink, { token: p.token, size: 'small' }),
   },
   {
     title: '',

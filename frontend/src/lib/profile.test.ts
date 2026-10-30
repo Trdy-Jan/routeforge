@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { NodeItem, Profile, Source } from '../api/types'
 import {
   insertBeforeMatch, memberLabel, moveItem, newGroup, newRule, renameGroup, sameMember,
-  subscriptionUrl, targetOptions,
+  maskedSubscriptionUrl, subscriptionUrl, targetOptions,
 } from './profile'
 
 const base: Profile = {
@@ -68,5 +68,12 @@ describe('profile helpers', () => {
 
   it('subscriptionUrl joins origin and token', () => {
     expect(subscriptionUrl('https://rf.example.com', 'abc')).toBe('https://rf.example.com/sub/abc')
+  })
+
+  it('maskedSubscriptionUrl hides the token but keeps the origin', () => {
+    const masked = maskedSubscriptionUrl('https://rf.example.com', 'abcdef')
+    expect(masked).toBe('https://rf.example.com/sub/••••••')
+    expect(masked).not.toContain('abc')
+    expect(maskedSubscriptionUrl('https://x', 'a'.repeat(40))).toBe(`https://x/sub/${'•'.repeat(16)}`)
   })
 })
