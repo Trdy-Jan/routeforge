@@ -2,7 +2,10 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import './styles.css'
 import { setUnauthorizedHandler } from './api/client'
+import { installAppearance } from './lib/appearance'
 import { isAuthCheckInFlight, markLoggedOut, router } from './router'
+
+installAppearance()
 
 setUnauthorizedHandler(() => {
   markLoggedOut()

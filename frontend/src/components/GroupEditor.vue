@@ -235,7 +235,7 @@ function submitFilter(f: FilterMember) {
   padding: 3px 4px;
 }
 .member:hover {
-  background: #fff;
+  background: var(--rf-surface);
 }
 .member__idx {
   color: var(--rf-faint);

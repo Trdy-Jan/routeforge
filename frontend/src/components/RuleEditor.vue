@@ -107,7 +107,7 @@ function remove(i: number) {
   width: 240px;
 }
 .edit-row--match {
-  background: #f4f8f8;
+  background: var(--rf-tint);
   border-radius: 6px;
 }
 </style>

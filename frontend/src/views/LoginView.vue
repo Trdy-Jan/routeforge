@@ -45,13 +45,13 @@ async function submit() {
     <svg class="login__map" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <g fill="none" stroke-width="4" stroke-linecap="round">
         <path d="M-20 620 H300 C360 620 380 600 420 560 L560 420 C600 380 620 360 680 360 H1220" stroke="#25496d" />
-        <path d="M560 420 C600 460 620 480 680 480 H900 C960 480 980 500 1020 540 L1220 740" stroke="#1f6f78" />
+        <path d="M560 420 C600 460 620 480 680 480 H900 C960 480 980 500 1020 540 L1220 740" class="map-accent" />
         <path d="M-20 180 H220 C280 180 300 200 340 240 L420 320 C460 360 480 360 540 360 H680" stroke="#25496d" />
       </g>
-      <g fill="#16324f" stroke-width="4">
+      <g class="map-stops" stroke-width="4">
         <circle cx="300" cy="620" r="9" stroke="#25496d" />
-        <circle cx="560" cy="420" r="11" stroke="#3fd0c9" />
-        <circle cx="900" cy="480" r="9" stroke="#1f6f78" />
+        <circle cx="560" cy="420" r="11" class="map-signal" />
+        <circle cx="900" cy="480" r="9" class="map-accent" />
         <circle cx="220" cy="180" r="9" stroke="#25496d" />
         <circle cx="680" cy="360" r="9" stroke="#25496d" />
       </g>
@@ -93,6 +93,15 @@ async function submit() {
   inset: 0;
   position: absolute;
   width: 100%;
+}
+.map-accent {
+  stroke: color-mix(in srgb, var(--rf-primary) 55%, var(--rf-ink));
+}
+.map-signal {
+  stroke: var(--rf-signal);
+}
+.map-stops {
+  fill: var(--rf-ink);
 }
 .panel {
   background: var(--rf-surface);

@@ -14,9 +14,29 @@
   --rf-warning: #c9820a;
   --rf-error: #c8384b;
   --rf-success: #2f8f57;
+  --rf-line-soft: #edf1f4;
+  --rf-tint: color-mix(in srgb, var(--rf-primary) 6%, var(--rf-surface));
   --rf-sans: "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei UI",
     "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
   --rf-mono: "JetBrains Mono", "Cascadia Mono", "SF Mono", Consolas, "Microsoft YaHei UI", monospace;
+}
+
+:root[data-theme="dark"] {
+  --rf-ink: #0b131c;
+  --rf-ink-2: #172433;
+  --rf-ink-line: #2c4258;
+  --rf-ink-text: #a9bacb;
+  --rf-canvas: #0f141a;
+  --rf-surface: #182029;
+  --rf-line: #2a3541;
+  --rf-line-soft: #222c37;
+  --rf-text: #e2e8ee;
+  --rf-muted: #9aa7b4;
+  --rf-faint: #6f7c89;
+  --rf-warning: #e0a33a;
+  --rf-error: #e5677a;
+  --rf-success: #4fb879;
+  --rf-tint: color-mix(in srgb, var(--rf-primary) 10%, var(--rf-surface));
 }
 
 * {
@@ -78,7 +98,7 @@ body {
 /* 编辑器里的一行（规则 / 规则集 / 链式代理） */
 .edit-row {
   align-items: center;
-  border-bottom: 1px solid #edf1f4;
+  border-bottom: 1px solid var(--rf-line-soft);
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

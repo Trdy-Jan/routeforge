@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { NConfigProvider, NDialogProvider, NMessageProvider, dateZhCN, zhCN } from 'naive-ui'
+import { NConfigProvider, NDialogProvider, NMessageProvider, darkTheme, dateZhCN, zhCN } from 'naive-ui'
 import { api } from './api'
+import AppearancePicker from './components/AppearancePicker.vue'
 import BrandMark from './components/BrandMark.vue'
+import { isDark, primaryColor } from './lib/appearance'
 import { markLoggedOut } from './router'
-import { themeOverrides } from './theme'
+import { buildThemeOverrides } from './theme'
+
+const theme = computed(() => (isDark.value ? darkTheme : null))
+const themeOverrides = computed(() => buildThemeOverrides(isDark.value, primaryColor.value))
 
 const route = useRoute()
 const router = useRouter()
@@ -32,7 +37,7 @@ async function logout() {
 </script>
 
 <template>
-  <NConfigProvider :locale="zhCN" :date-locale="dateZhCN" :theme-overrides="themeOverrides">
+  <NConfigProvider :locale="zhCN" :date-locale="dateZhCN" :theme="theme" :theme-overrides="themeOverrides">
     <NMessageProvider>
       <NDialogProvider>
         <div v-if="showShell" class="shell">
@@ -55,7 +60,10 @@ async function logout() {
                 <span class="station__name">{{ s.title }}</span>
               </RouterLink>
             </nav>
-            <button type="button" class="logout" @click="logout">退出登录</button>
+            <div class="sider__foot">
+              <AppearancePicker />
+              <button type="button" class="logout" @click="logout">退出登录</button>
+            </div>
           </aside>
           <main class="content">
             <div class="content__inner"><RouterView /></div>
@@ -157,7 +165,14 @@ async function logout() {
 .station--active .station__dot {
   background: var(--rf-signal);
   border-color: #fff;
-  box-shadow: 0 0 0 4px rgb(63 208 201 / 0.22);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--rf-signal) 22%, transparent);
+}
+
+.sider__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: auto;
 }
 
 .logout {
@@ -168,7 +183,6 @@ async function logout() {
   cursor: pointer;
   font: inherit;
   font-size: 13px;
-  margin-top: auto;
   padding: 8px 10px;
   text-align: left;
 }
