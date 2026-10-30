@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { NodeItem, Profile, Source } from '../api/types'
 import {
-  insertBeforeMatch, memberLabel, moveItem, newGroup, newRule, renameGroup, sameMember,
+  insertBeforeMatch, memberLabel, moveItem, newGroup, newRule, renameGroup, moveRule, reorder, sameMember,
   maskedSubscriptionUrl, subscriptionUrl, targetOptions,
 } from './profile'
 
@@ -39,6 +39,20 @@ describe('profile helpers', () => {
     expect(moveItem([1, 2, 3], 0, 1)).toEqual([2, 1, 3])
     expect(moveItem([1, 2, 3], 0, -1)).toEqual([1, 2, 3])
     expect(moveItem([1, 2, 3], 2, 1)).toEqual([1, 2, 3])
+  })
+
+  it('reorder moves an item to the target index', () => {
+    expect(reorder([1, 2, 3, 4], 0, 2)).toEqual([2, 3, 1, 4])
+    expect(reorder([1, 2, 3, 4], 3, 1)).toEqual([1, 4, 2, 3])
+    expect(reorder([1, 2, 3], 1, 1)).toEqual([1, 2, 3])
+    expect(reorder([1, 2, 3], 0, 5)).toEqual([1, 2, 3])
+  })
+
+  it('moveRule never moves MATCH or moves past it', () => {
+    const rules = [newRule('a'), newRule('b'), { ...newRule('c'), type: 'MATCH' as const }]
+    expect(moveRule(rules, 0, 1).map((r) => r.target)).toEqual(['b', 'a', 'c'])
+    expect(moveRule(rules, 1, 2)).toBe(rules)
+    expect(moveRule(rules, 2, 0)).toBe(rules)
   })
 
   it('sameMember compares by kind and identity', () => {

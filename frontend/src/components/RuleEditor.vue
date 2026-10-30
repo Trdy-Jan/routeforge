@@ -2,9 +2,11 @@
 import { computed } from 'vue'
 import { NAlert, NButton, NCheckbox, NInput, NSelect, NSpace } from 'naive-ui'
 import { RULE_TYPES, type Profile, type Rule, type RuleType } from '../api/types'
-import { insertBeforeMatch, moveItem, newRule, targetOptions } from '../lib/profile'
+import { useDragSort } from '../lib/dragSort'
+import { insertBeforeMatch, moveRule, newRule, targetOptions } from '../lib/profile'
 
 const profile = defineModel<Profile>({ required: true })
+const drag = useDragSort()
 
 const NO_RESOLVE_TYPES: RuleType[] = ['IP-CIDR', 'IP-CIDR6', 'GEOIP', 'RULE-SET']
 const PLACEHOLDERS: Partial<Record<RuleType, string>> = {
@@ -39,7 +41,16 @@ function setType(r: Rule, t: RuleType) {
 }
 
 function move(i: number, delta: number) {
-  profile.value.rules = moveItem(profile.value.rules, i, delta)
+  profile.value.rules = moveRule(profile.value.rules, i, i + delta)
+}
+
+function drop(from: number, to: number) {
+  profile.value.rules = moveRule(profile.value.rules, from, to)
+}
+
+function isLastMovable(i: number) {
+  const next = profile.value.rules[i + 1]
+  return !next || next.type === 'MATCH'
 }
 
 function remove(i: number) {
@@ -54,7 +65,15 @@ function remove(i: number) {
       <NButton text type="primary" @click="addMatch">添加 MATCH</NButton>
     </NAlert>
     <p class="hint">规则从上到下依次匹配，命中第一条即停止。</p>
-    <div v-for="(r, i) in profile.rules" :key="i" class="edit-row" :class="{ 'edit-row--match': r.type === 'MATCH' }">
+    <div
+      v-for="(r, i) in profile.rules"
+      :key="i"
+      class="edit-row"
+      :class="{ 'edit-row--match': r.type === 'MATCH' }"
+      v-bind="r.type === 'MATCH' ? {} : drag.row('rules', i, drop)"
+    >
+      <span v-if="r.type === 'MATCH'" class="drag-handle drag-handle--locked" title="MATCH 固定在最后">⠿</span>
+      <span v-else v-bind="drag.handle('rules', i)">⠿</span>
       <span class="idx mono">{{ i + 1 }}</span>
       <NSelect
         :value="r.type"
@@ -80,8 +99,10 @@ function remove(i: number) {
         @update:value="(v: unknown) => (r.target = v as string)"
       />
       <NCheckbox v-if="NO_RESOLVE_TYPES.includes(r.type)" v-model:checked="r.no_resolve">no-resolve</NCheckbox>
-      <NButton size="tiny" quaternary @click="move(i, -1)">↑</NButton>
-      <NButton size="tiny" quaternary @click="move(i, 1)">↓</NButton>
+      <template v-if="r.type !== 'MATCH'">
+        <NButton size="tiny" quaternary :disabled="i === 0" @click="move(i, -1)">↑</NButton>
+        <NButton size="tiny" quaternary :disabled="isLastMovable(i)" @click="move(i, 1)">↓</NButton>
+      </template>
       <NButton size="tiny" quaternary type="error" @click="remove(i)">✕</NButton>
     </div>
     <NButton dashed block style="margin-top: 4px" @click="add">添加规则（插在 MATCH 之前）</NButton>

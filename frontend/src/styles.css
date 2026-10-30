@@ -125,3 +125,33 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 拖动排序：把手、被拖动的行、落点指示线 */
+.drag-handle {
+  color: var(--rf-faint);
+  cursor: grab;
+  flex: none;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px;
+  user-select: none;
+}
+.drag-handle:hover {
+  color: var(--rf-primary);
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+.is-dragging {
+  opacity: 0.45;
+}
+.drop-before {
+  box-shadow: inset 0 2px 0 var(--rf-primary);
+}
+.drop-after {
+  box-shadow: inset 0 -2px 0 var(--rf-primary);
+}
+.drag-handle--locked {
+  cursor: default;
+  visibility: hidden;
+}

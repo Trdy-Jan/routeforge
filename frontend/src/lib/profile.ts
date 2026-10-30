@@ -19,6 +19,20 @@ export function moveItem<T>(list: T[], index: number, delta: number): T[] {
   return copy
 }
 
+export function reorder<T>(list: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return list
+  const copy = [...list]
+  const [item] = copy.splice(from, 1)
+  copy.splice(to, 0, item)
+  return copy
+}
+
+// MATCH 固定在最后：它自身不能移动，其他规则也不能越过它
+export function moveRule(rules: Rule[], from: number, to: number): Rule[] {
+  if (rules[from]?.type === 'MATCH' || rules[to]?.type === 'MATCH') return rules
+  return reorder(rules, from, to)
+}
+
 export function insertBeforeMatch(rules: Rule[], rule: Rule): Rule[] {
   const at = rules.findIndex((r) => r.type === 'MATCH')
   if (at === -1) return [...rules, rule]

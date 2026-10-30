@@ -4,13 +4,15 @@ import {
   NButton, NCard, NEmpty, NInput, NInputNumber, NModal, NSelect, NSpace, NTag, NText, useDialog, useMessage,
 } from 'naive-ui'
 import type { FilterMember, GroupType, Member, NodeItem, Profile, Source } from '../api/types'
-import { BUILTIN_TARGETS, memberLabel, moveItem, newGroup, renameGroup, sameMember } from '../lib/profile'
+import { useDragSort } from '../lib/dragSort'
+import { BUILTIN_TARGETS, memberLabel, moveItem, newGroup, renameGroup, reorder, sameMember } from '../lib/profile'
 import FilterForm from './FilterForm.vue'
 
 const profile = defineModel<Profile>({ required: true })
 const props = defineProps<{ nodes: NodeItem[]; sources: Source[] }>()
 const message = useMessage()
 const dialog = useDialog()
+const drag = useDragSort()
 
 const GROUP_TYPES = [
   { label: '手动选择', value: 'select' },
@@ -64,6 +66,10 @@ function moveGroup(index: number, delta: number) {
   profile.value.groups = moveItem(profile.value.groups, index, delta)
 }
 
+function dropGroup(from: number, to: number) {
+  profile.value.groups = reorder(profile.value.groups, from, to)
+}
+
 function removeGroup(index: number) {
   const name = profile.value.groups[index].name
   const p = profile.value
@@ -98,6 +104,11 @@ function moveMember(index: number, mi: number, delta: number) {
   g.members = moveItem(g.members, mi, delta)
 }
 
+function dropMember(index: number, from: number, to: number) {
+  const g = profile.value.groups[index]
+  g.members = reorder(g.members, from, to)
+}
+
 function removeMember(index: number, mi: number) {
   profile.value.groups[index].members.splice(mi, 1)
 }
@@ -111,9 +122,17 @@ function submitFilter(f: FilterMember) {
 <template>
   <NSpace vertical>
     <NEmpty v-if="!profile.groups.length" description="还没有分组：可以「套用模板」，或在下方新建" />
-    <NCard v-for="(g, i) in profile.groups" :key="i" size="small" class="group" embedded>
+    <NCard
+      v-for="(g, i) in profile.groups"
+      :key="i"
+      size="small"
+      class="group"
+      embedded
+      v-bind="drag.row('groups', i, dropGroup)"
+    >
       <template #header>
         <NSpace align="center">
+          <span v-bind="drag.handle('groups', i)">⠿</span>
           <NInput
             :value="drafts[i] ?? g.name"
             style="width: 200px"
@@ -164,7 +183,13 @@ function submitFilter(f: FilterMember) {
         </template>
       </div>
 
-      <div v-for="(m, mi) in g.members" :key="mi" class="member">
+      <div
+        v-for="(m, mi) in g.members"
+        :key="mi"
+        class="member"
+        v-bind="drag.row(`members:${i}`, mi, (from, to) => dropMember(i, from, to))"
+      >
+        <span v-bind="drag.handle(`members:${i}`, mi)">⠿</span>
         <span class="member__idx mono">{{ mi + 1 }}</span>
         <NTag size="small" :bordered="false" :type="tagType(m)">{{ memberLabel(m, nodeMap, sourceMap) }}</NTag>
         <NSpace size="small" class="member__ops" :wrap="false">
