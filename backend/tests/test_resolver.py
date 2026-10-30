@@ -280,3 +280,28 @@ def test_bad_rule_provider_name_is_an_error(name):
 def test_mrs_classical_rule_provider_is_an_error():
     errors = _rules_errors([], [RuleProvider(name="c", behavior="classical", format="mrs", url="https://x/c.mrs")])
     assert any("mrs 格式只支持 domain / ipcidr" in e for e in errors)
+
+
+@pytest.mark.parametrize("url, behavior", [
+    ("https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geoip/telegram.mrs", "domain"),
+    ("https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/telegram.mrs", "ipcidr"),
+    ("https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo-lite/geoip/cn.yaml", "domain"),
+])
+def test_rule_provider_behavior_mismatching_url_is_an_error(url, behavior):
+    result = resolve(make([group("Proxy")], rule_providers=[RuleProvider(name="t", behavior=behavior, format="mrs", url=url)]), lib())
+    issue = next(i for i in result.issues if "类型" in i.message)
+    assert issue.section == "providers"
+    assert "「t」" in issue.message
+    assert ("ipcidr" if behavior == "domain" else "domain") in issue.hint
+
+
+@pytest.mark.parametrize("url, behavior", [
+    ("https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geoip/telegram.mrs", "ipcidr"),
+    ("https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/telegram.mrs", "domain"),
+    ("https://example.com/geoip/custom.yaml", "classical"),
+    ("https://example.com/rules/telegram.mrs", "domain"),
+])
+def test_rule_provider_behavior_consistent_with_url_is_ok(url, behavior):
+    fmt = "yaml" if behavior == "classical" else "mrs"
+    result = resolve(make([group("Proxy")], rule_providers=[RuleProvider(name="t", behavior=behavior, format=fmt, url=url)]), lib())
+    assert result.ok, result.errors

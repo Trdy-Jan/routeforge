@@ -60,6 +60,17 @@ def match_filter(library: list[LibraryNode], f: Filter) -> list[LibraryNode]:
     ]
 
 
+_GEO_DIR = re.compile(r"/(geoip|geosite)/")
+
+
+def _behavior_from_url(url: str) -> str | None:
+    """按 meta-rules-dat 的目录约定从链接推断类型：/geoip/ → ipcidr，/geosite/ → domain；推断不出返回 None。"""
+    m = _GEO_DIR.search(url)
+    if m is None:
+        return None
+    return "ipcidr" if m.group(1) == "geoip" else "domain"
+
+
 class _Resolver:
     def __init__(self, profile: Profile, library: list[LibraryNode]):
         self.profile = profile
@@ -243,6 +254,13 @@ class _Resolver:
                 self._error("providers", f"规则集名称「{p.name}」无效：不能为空，也不能包含 / \\ , ..", "修改这个规则集的名称")
             if p.format == "mrs" and p.behavior == "classical":
                 self._error("providers", f"规则集「{p.name}」：mrs 格式只支持 domain / ipcidr", "把格式改为 yaml / text，或把类型改为 domain / ipcidr")
+            expected = _behavior_from_url(p.url)
+            if expected and p.behavior in ("domain", "ipcidr") and p.behavior != expected:
+                self._error(
+                    "providers",
+                    f"规则集「{p.name}」的类型 {p.behavior} 与链接不符：链接指向 {'geoip（IP 段）' if expected == 'ipcidr' else 'geosite（域名）'}",
+                    f"把类型改为 {expected}，否则 mihomo 无法加载这个规则集",
+                )
         for r in rules:
             if r.type != "MATCH" and not r.value:
                 self._error("rules", f"规则「{r.type}」缺少值", "为这条规则填写匹配值，或删除它")
