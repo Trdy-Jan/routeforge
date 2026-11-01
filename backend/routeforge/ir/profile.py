@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 BUILTIN_TARGETS: frozenset[str] = frozenset({"DIRECT", "REJECT"})
 
@@ -11,6 +11,10 @@ RuleType = Literal[
     "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "IP-CIDR", "IP-CIDR6",
     "GEOSITE", "GEOIP", "PROCESS-NAME", "RULE-SET", "MATCH",
 ]
+# 这些类型的规则可填多个值（values），渲染时按值展开为多行；其余类型只用单值 value。
+MULTI_VALUE_RULE_TYPES: frozenset[str] = frozenset(
+    {"DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "IP-CIDR", "IP-CIDR6", "PROCESS-NAME"}
+)
 
 
 class NodeRef(BaseModel):
@@ -52,8 +56,25 @@ class ProxyGroup(BaseModel):
 class Rule(BaseModel):
     type: RuleType
     value: str = ""
+    values: list[str] = []
     target: str
     no_resolve: bool = False
+
+    @model_validator(mode="after")
+    def _normalize_values(self) -> "Rule":
+        if self.type in MULTI_VALUE_RULE_TYPES:
+            if self.value and not self.values:  # 兼容旧数据：单值迁移到 values
+                self.values = [self.value]
+            self.value = ""
+        else:
+            self.values = []
+        return self
+
+    def items(self) -> list[str]:
+        """这条规则的全部匹配值（MATCH 为空列表）。"""
+        if self.type == "MATCH":
+            return []
+        return list(self.values) if self.type in MULTI_VALUE_RULE_TYPES else [self.value]
 
 
 class RuleProvider(BaseModel):

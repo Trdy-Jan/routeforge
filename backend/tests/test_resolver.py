@@ -305,3 +305,17 @@ def test_rule_provider_behavior_consistent_with_url_is_ok(url, behavior):
     fmt = "yaml" if behavior == "classical" else "mrs"
     result = resolve(make([group("Proxy")], rule_providers=[RuleProvider(name="t", behavior=behavior, format=fmt, url=url)]), lib())
     assert result.ok, result.errors
+
+
+def test_legacy_single_value_migrates_to_values_for_multi_types():
+    r = Rule(type="DOMAIN-SUFFIX", value="a.com", target="DIRECT")
+    assert r.values == ["a.com"] and r.value == ""
+    s = Rule(type="RULE-SET", value="ads", target="DIRECT")
+    assert s.value == "ads" and s.values == []
+
+
+def test_multi_value_rule_validation():
+    assert any("缺少值" in e for e in _rules_errors([Rule(type="DOMAIN-SUFFIX", values=[], target="DIRECT")]))
+    assert any("," in e for e in _rules_errors([Rule(type="DOMAIN", values=["a.com", "b,c"], target="DIRECT")]))
+    assert any("缺少值" in e for e in _rules_errors([Rule(type="DOMAIN", values=["a.com", " "], target="DIRECT")]))
+    assert _rules_errors([Rule(type="DOMAIN", values=["a.com", "b.com"], target="DIRECT")]) == []

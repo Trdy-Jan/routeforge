@@ -262,14 +262,16 @@ class _Resolver:
                     f"把类型改为 {expected}，否则 mihomo 无法加载这个规则集",
                 )
         for r in rules:
-            if r.type != "MATCH" and not r.value:
-                self._error("rules", f"规则「{r.type}」缺少值", "为这条规则填写匹配值，或删除它")
-            if "," in r.value or "," in r.target:
-                self._error("rules", f"规则「{r.type},{r.value}」的值或目标「{r.target}」不能包含逗号「,」", "每条规则只能写一个值，多个值请拆成多条规则")
+            items = r.items()
+            label = f"{r.type},{' / '.join(items)}" if items else r.type
+            if r.type != "MATCH" and (not items or any(not v.strip() for v in items)):
+                self._error("rules", f"规则「{r.type}」缺少值", "为这条规则填写匹配值，删除空值，或删除这条规则")
+            if any("," in v for v in items) or "," in r.target:
+                self._error("rules", f"规则「{label}」的值或目标「{r.target}」不能包含逗号「,」", "多个值请分别添加为独立的标签")
             if r.target not in group_names and r.target not in BUILTIN_TARGETS:
                 self._error(
                     "rules",
-                    f"规则「{r.type},{r.value}」的目标「{r.target}」不存在",
+                    f"规则「{label}」的目标「{r.target}」不存在",
                     f"把目标改为已有分组，或在「分组」中新建名为「{r.target}」的分组",
                 )
             if r.type == "RULE-SET" and r.value not in provider_names:

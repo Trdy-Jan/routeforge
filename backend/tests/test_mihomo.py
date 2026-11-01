@@ -159,3 +159,19 @@ def test_mihomo_binary_accepts_config(tmp_path):
     path.write_text(MihomoRenderer().render(p).content, encoding="utf-8")
     proc = subprocess.run(["mihomo", "-t", "-d", str(tmp_path), "-f", str(path)], capture_output=True, text=True)
     assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+def test_multi_value_rule_expands_to_one_line_per_value():
+    p = sample().model_copy(update={"rule_providers": [], "rules": [
+        Rule(type="DOMAIN-SUFFIX", values=["github.com", "github.io"], target="DIRECT"),
+        Rule(type="IP-CIDR", values=["10.0.0.0/8", "192.168.0.0/16"], target="DIRECT", no_resolve=True),
+        Rule(type="MATCH", target="节点选择"),
+    ]})
+    config = yaml.safe_load(MihomoRenderer().render(p).content)
+    assert config["rules"] == [
+        "DOMAIN-SUFFIX,github.com,DIRECT",
+        "DOMAIN-SUFFIX,github.io,DIRECT",
+        "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
+        "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
+        "MATCH,节点选择",
+    ]

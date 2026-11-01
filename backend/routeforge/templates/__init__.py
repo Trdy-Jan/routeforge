@@ -59,7 +59,7 @@ def apply_template(profile: Profile, template: Template) -> tuple[Profile, list[
         provider_names.add(p.name)
 
     rules = list(profile.rules)
-    existing = {(r.type, r.value, r.target) for r in rules}
+    existing = {(r.type, tuple(r.items()), r.target) for r in rules}
     has_match = any(r.type == "MATCH" for r in rules)
     insert_at = next((i for i, r in enumerate(rules) if r.type == "MATCH"), len(rules))
     new_rules: list[Rule] = []
@@ -71,7 +71,7 @@ def apply_template(profile: Profile, template: Template) -> tuple[Profile, list[
             else:
                 template_match = r
             continue
-        if (r.type, r.value, r.target) not in existing:
+        if (r.type, tuple(r.items()), r.target) not in existing:
             new_rules.append(r.model_copy())
     rules[insert_at:insert_at] = new_rules
     if template_match is not None:

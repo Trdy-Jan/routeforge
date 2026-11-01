@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { NAlert, NButton, NCheckbox, NInput, NSelect, NSpace } from 'naive-ui'
-import { RULE_TYPES, type Profile, type Rule, type RuleType } from '../api/types'
+import { MULTI_VALUE_RULE_TYPES, RULE_TYPES, type Profile, type Rule, type RuleType } from '../api/types'
 import { useDragSort } from '../lib/dragSort'
-import { insertBeforeMatch, moveRule, newRule, targetOptions } from '../lib/profile'
+import { insertBeforeMatch, moveRule, newRule, splitRuleValues, targetOptions } from '../lib/profile'
 
 const profile = defineModel<Profile>({ required: true })
 const drag = useDragSort()
@@ -31,11 +31,19 @@ function add() {
 }
 
 function addMatch() {
-  profile.value.rules.push({ type: 'MATCH', value: '', target: defaultTarget.value, no_resolve: false })
+  profile.value.rules.push({ type: 'MATCH', value: '', values: [], target: defaultTarget.value, no_resolve: false })
+}
+
+function isMulti(t: RuleType) {
+  return MULTI_VALUE_RULE_TYPES.includes(t)
 }
 
 function setType(r: Rule, t: RuleType) {
-  if (r.type !== t) r.value = ''
+  if (r.type !== t) {
+    // 多值类型之间切换保留已填的值；切到/离开单值类型时清空
+    if (!(isMulti(r.type) && isMulti(t))) r.values = []
+    r.value = ''
+  }
   r.type = t
   if (!NO_RESOLVE_TYPES.includes(t)) r.no_resolve = false
 }
@@ -86,11 +94,23 @@ function remove(i: number) {
         :value="r.value || null"
         :options="providerOptions"
         placeholder="选择规则集"
-        style="width: 240px"
+        class="value-field"
         @update:value="(v: unknown) => (r.value = String(v ?? ''))"
       />
-      <NInput v-else-if="r.type !== 'MATCH'" v-model:value="r.value" class="mono" :placeholder="PLACEHOLDERS[r.type]" style="width: 240px" />
-      <span v-else class="match-text">其余所有流量</span>
+      <NSelect
+        v-else-if="isMulti(r.type)"
+        :value="r.values"
+        multiple
+        filterable
+        tag
+        :show="false"
+        :show-arrow="false"
+        class="mono value-field values-input"
+        :placeholder="`${PLACEHOLDERS[r.type] ?? ''}（回车添加，可粘贴多个）`"
+        @update:value="(v: unknown) => (r.values = splitRuleValues(v as string[]))"
+      />
+      <NInput v-else-if="r.type !== 'MATCH'" v-model:value="r.value" class="mono value-field" :placeholder="PLACEHOLDERS[r.type]" />
+      <span v-else class="match-text value-field">其余所有流量</span>
       <span class="arrow" aria-hidden="true">→</span>
       <NSelect
         :value="r.target"
@@ -98,11 +118,15 @@ function remove(i: number) {
         style="width: 170px"
         @update:value="(v: unknown) => (r.target = v as string)"
       />
-      <NCheckbox v-if="NO_RESOLVE_TYPES.includes(r.type)" v-model:checked="r.no_resolve">no-resolve</NCheckbox>
-      <template v-if="r.type !== 'MATCH'">
-        <NButton size="tiny" quaternary :disabled="i === 0" @click="move(i, -1)">↑</NButton>
-        <NButton size="tiny" quaternary :disabled="isLastMovable(i)" @click="move(i, 1)">↓</NButton>
-      </template>
+      <span class="slot-opt">
+        <NCheckbox v-if="NO_RESOLVE_TYPES.includes(r.type)" v-model:checked="r.no_resolve">no-resolve</NCheckbox>
+      </span>
+      <span class="slot-move">
+        <template v-if="r.type !== 'MATCH'">
+          <NButton size="tiny" quaternary :disabled="i === 0" @click="move(i, -1)">↑</NButton>
+          <NButton size="tiny" quaternary :disabled="isLastMovable(i)" @click="move(i, 1)">↓</NButton>
+        </template>
+      </span>
       <NButton size="tiny" quaternary type="error" @click="remove(i)">✕</NButton>
     </div>
     <NButton dashed block style="margin-top: 4px" @click="add">添加规则（插在 MATCH 之前）</NButton>
@@ -125,7 +149,19 @@ function remove(i: number) {
 }
 .match-text {
   color: var(--rf-muted);
-  width: 240px;
+}
+/* 值输入框占满行内剩余宽度；标签多时自动换行增高 */
+.value-field {
+  flex: 1 1 240px;
+  min-width: 240px;
+}
+/* 右侧固定占位，保证各行的目标分组上下对齐 */
+.slot-opt {
+  width: 100px;
+}
+.slot-move {
+  display: inline-flex;
+  width: 56px;
 }
 .edit-row--match {
   background: var(--rf-tint);

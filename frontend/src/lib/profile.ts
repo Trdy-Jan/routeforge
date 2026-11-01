@@ -8,7 +8,18 @@ export function newGroup(name: string): ProxyGroup {
 }
 
 export function newRule(target: string): Rule {
-  return { type: 'DOMAIN-SUFFIX', value: '', target, no_resolve: false }
+  return { type: 'DOMAIN-SUFFIX', value: '', values: [], target, no_resolve: false }
+}
+
+/** 把输入/粘贴的文本按逗号、空白、分号拆成多个值，去空、去重并保持顺序。 */
+export function splitRuleValues(inputs: string[]): string[] {
+  const out: string[] = []
+  for (const raw of inputs) {
+    for (const v of raw.split(/[\s,，;；]+/)) {
+      if (v && !out.includes(v)) out.push(v)
+    }
+  }
+  return out
 }
 
 export function moveItem<T>(list: T[], index: number, delta: number): T[] {

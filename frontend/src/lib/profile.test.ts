@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { NodeItem, Profile, Source } from '../api/types'
 import {
   insertBeforeMatch, memberLabel, moveItem, newGroup, newRule, renameGroup, moveRule, reorder, sameMember,
-  maskedSubscriptionUrl, subscriptionUrl, targetOptions,
+  maskedSubscriptionUrl, splitRuleValues, subscriptionUrl, targetOptions,
 } from './profile'
 
 const base: Profile = {
@@ -12,8 +12,8 @@ const base: Profile = {
     newGroup('自动'),
   ],
   rules: [
-    { type: 'DOMAIN-SUFFIX', value: 'a.com', target: '自动', no_resolve: false },
-    { type: 'MATCH', value: '', target: '节点选择', no_resolve: false },
+    { type: 'DOMAIN-SUFFIX', value: '', values: ['a.com'], target: '自动', no_resolve: false },
+    { type: 'MATCH', value: '', values: [], target: '节点选择', no_resolve: false },
   ],
   rule_providers: [],
   chains: [{ node: { kind: 'node', node_id: 1 }, via: { kind: 'group', name: '自动' } }],
@@ -27,6 +27,13 @@ describe('profile helpers', () => {
     expect(p.rules[0].target).toBe('自动测速')
     expect(p.chains[0].via).toEqual({ kind: 'group', name: '自动测速' })
     expect(base.groups[1].name).toBe('自动') // 不修改原对象
+  })
+
+  it('splitRuleValues splits pasted lists, trims and dedupes', () => {
+    expect(splitRuleValues(['github.com', 'github.io, githubusercontent.com\n github.com', '  '])).toEqual([
+      'github.com', 'github.io', 'githubusercontent.com',
+    ])
+    expect(splitRuleValues(['a.com，b.com；c.com'])).toEqual(['a.com', 'b.com', 'c.com'])
   })
 
   it('insertBeforeMatch keeps MATCH last', () => {

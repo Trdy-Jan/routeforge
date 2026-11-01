@@ -69,7 +69,7 @@ class MihomoRenderer:
         config["proxy-groups"] = groups
         if providers:
             config["rule-providers"] = {p.name: _provider(p) for p in providers}
-        config["rules"] = [_rule_line(r) for r in rules]
+        config["rules"] = [line for r in rules for line in _rule_lines(r)]
 
         content = yaml.safe_dump(config, allow_unicode=True, sort_keys=False, default_flow_style=False)
         return RenderResult(content=content, content_type="text/yaml; charset=utf-8", file_ext="yaml", warnings=warnings)
@@ -112,10 +112,9 @@ def _provider(p: RuleProvider) -> dict:
     }
 
 
-def _rule_line(r: Rule) -> str:
+def _rule_lines(r: Rule) -> list[str]:
+    """一条规则按值展开为多行（mihomo 每行只能写一个值），顺序与目标不变。"""
     if r.type == "MATCH":
-        return f"MATCH,{r.target}"
-    parts = [r.type, r.value, r.target]
-    if r.no_resolve:
-        parts.append("no-resolve")
-    return ",".join(parts)
+        return [f"MATCH,{r.target}"]
+    suffix = [r.target, "no-resolve"] if r.no_resolve else [r.target]
+    return [",".join([r.type, v, *suffix]) for v in r.items()]

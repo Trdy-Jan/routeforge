@@ -92,9 +92,17 @@ export const RULE_TYPES = [
 
 export type RuleType = (typeof RULE_TYPES)[number]
 
+/** 可填多个值的规则类型：值存于 values，生成配置时按值展开为多行。 */
+export const MULTI_VALUE_RULE_TYPES: readonly RuleType[] = [
+  'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'IP-CIDR', 'IP-CIDR6', 'PROCESS-NAME',
+]
+
 export interface Rule {
   type: RuleType
+  /** 单值类型（RULE-SET / GEOSITE / GEOIP）使用 */
   value: string
+  /** 多值类型使用 */
+  values: string[]
   target: string
   no_resolve: boolean
 }
