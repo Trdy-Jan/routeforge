@@ -162,3 +162,29 @@ export interface TemplateInfo {
   name: string
   description: string
 }
+
+export interface PushStatus {
+  at: string
+  ok: boolean
+  message: string
+  trigger: 'auto' | 'manual'
+}
+
+export interface OpenClashSettings {
+  router_url: string
+  username: string
+  has_password: boolean
+  config_name: string
+  profile_id: number | null
+  auto_push: boolean
+  status: PushStatus | null
+}
+
+export interface OpenClashSettingsInput {
+  router_url: string
+  username: string
+  password?: string
+  config_name: string
+  profile_id: number | null
+  auto_push: boolean
+}

@@ -1,7 +1,7 @@
 import { request } from './client'
 import type {
-  FilterMember, ImportResult, NodeItem, Preview, Profile, ProfileDetail, ProfileSummary, RefreshResult,
-  Source, SourceInput, SourcePatch, TemplateInfo,
+  FilterMember, ImportResult, NodeItem, OpenClashSettings, OpenClashSettingsInput, Preview, Profile, ProfileDetail, ProfileSummary, RefreshResult,
+  PushStatus, Source, SourceInput, SourcePatch, TemplateInfo,
 } from './types'
 
 export function buildQuery(params: Record<string, string | number | null | undefined>): string {
@@ -43,4 +43,9 @@ export const api = {
   preview: (id: number) => request<Preview>('GET', `/api/profiles/${id}/preview`),
 
   listTemplates: () => request<TemplateInfo[]>('GET', '/api/templates'),
+
+  getOpenClash: () => request<OpenClashSettings>('GET', '/api/openclash/settings'),
+  saveOpenClash: (body: OpenClashSettingsInput) => request<OpenClashSettings>('PUT', '/api/openclash/settings', body),
+  testOpenClash: () => request<{ ok: boolean; message: string }>('POST', '/api/openclash/test'),
+  pushOpenClash: () => request<PushStatus>('POST', '/api/openclash/push'),
 }

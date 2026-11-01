@@ -9,6 +9,7 @@
 - 分流规则：内置模板（广告拦截、AI 服务、流媒体、Telegram、GitHub、Docker、国内直连、漏网之鱼），也可自定义规则与远程规则集
 - 链式代理：指定落地节点经由某个分组 / 节点出站（Mihomo `dialer-proxy`）
 - 订阅链接：带随机 token，可一键重置；方案改坏时继续返回上次成功的配置；单一机场源时透传流量与到期信息
+- 推送到 OpenClash：在「设置」页填写路由器 LuCI 账号与 OpenClash 配置文件名，方案内容变化后自动通知 OpenClash 立即更新订阅（路由器密码明文保存在数据库中）
 
 第一期仅输出 Mihomo（Clash Meta）配置。
 

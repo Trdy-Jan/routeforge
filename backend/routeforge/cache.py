@@ -1,4 +1,5 @@
 import threading
+from collections.abc import Callable
 from typing import Any
 
 
@@ -8,6 +9,11 @@ class RenderCache:
     def __init__(self) -> None:
         self._data: dict[Any, Any] = {}
         self._lock = threading.Lock()
+        self._listeners: list[Callable[[], None]] = []
+
+    def add_listener(self, fn: Callable[[], None]) -> None:
+        """数据变化（缓存失效）时回调。"""
+        self._listeners.append(fn)
 
     def get(self, key: Any) -> Any | None:
         with self._lock:
@@ -20,3 +26,5 @@ class RenderCache:
     def invalidate(self) -> None:
         with self._lock:
             self._data.clear()
+        for fn in self._listeners:
+            fn()

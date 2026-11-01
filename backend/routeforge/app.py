@@ -11,6 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from routeforge.api import auth as auth_api
 from routeforge.api import nodes as nodes_api
+from routeforge.api import openclash as openclash_api
 from routeforge.api import profiles as profiles_api
 from routeforge.api import sources as sources_api
 from routeforge.api import subscribe as subscribe_api
@@ -19,6 +20,7 @@ from routeforge.auth import LoginLimiter, bootstrap_secrets
 from routeforge.cache import RenderCache
 from routeforge.config import Settings
 from routeforge.db.session import init_db, make_engine
+from routeforge.openclash import OpenClashPusher
 from routeforge.scheduler import refresh_loop
 from routeforge.web import mount_frontend
 
@@ -51,15 +53,19 @@ def create_app(settings: Settings, *, http_client: httpx.Client | None = None,
 
     client = http_client or httpx.Client(timeout=30, follow_redirects=True)
     cache = RenderCache()
+    pusher = OpenClashPusher(engine, client)
+    cache.add_listener(pusher.notify_changed)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        task = asyncio.create_task(refresh_loop(engine, client, cache.invalidate)) if start_scheduler else None
+        tasks = [asyncio.create_task(refresh_loop(engine, client, cache.invalidate)),
+                 asyncio.create_task(pusher.run())] if start_scheduler else []
         try:
             yield
         finally:
-            if task is not None:
+            for task in tasks:
                 task.cancel()
+            for task in tasks:
                 with suppress(asyncio.CancelledError):
                     await task
             if http_client is None:
@@ -70,6 +76,7 @@ def create_app(settings: Settings, *, http_client: httpx.Client | None = None,
     app.state.engine = engine
     app.state.cache = cache
     app.state.http = client
+    app.state.openclash = pusher
     app.state.limiter = LoginLimiter()
 
     @app.middleware("http")
@@ -95,6 +102,7 @@ def create_app(settings: Settings, *, http_client: httpx.Client | None = None,
     app.include_router(nodes_api.router)
     app.include_router(profiles_api.router)
     app.include_router(templates_api.router)
+    app.include_router(openclash_api.router)
     app.include_router(subscribe_api.router)
     if settings.static_dir is not None:
         mount_frontend(app, settings.static_dir)
