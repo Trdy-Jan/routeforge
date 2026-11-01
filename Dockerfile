@@ -18,7 +18,7 @@ WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY backend/routeforge ./routeforge
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 COPY --from=web /web/dist /app/static
 
 ENV PATH="/app/.venv/bin:$PATH" \
