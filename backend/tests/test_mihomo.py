@@ -4,7 +4,7 @@ import subprocess
 import pytest
 import yaml
 
-from routeforge.ir.node import Hysteria2Node, Reality, SSNode, TLSOptions, Transport, VlessNode
+from routeforge.ir.node import Hysteria2Node, MieruNode, Reality, SSNode, TLSOptions, Transport, VlessNode
 from routeforge.ir.profile import Rule, RuleProvider
 from routeforge.ir.resolved import ResolvedGroup, ResolvedProfile
 from routeforge.renderers import get_renderer
@@ -175,3 +175,16 @@ def test_multi_value_rule_expands_to_one_line_per_value():
         "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
         "MATCH,节点选择",
     ]
+
+
+def test_render_mieru_with_dialer_proxy_and_port_range():
+    profile = sample().model_copy(update={"proxies": [
+        *sample().proxies,
+        MieruNode(name="M", server="203.0.113.10", port=2090, port_range="2090-2099", protocol="TCP",
+                  username="user1", password="pass1", via="前置"),
+    ]})
+    result = MihomoRenderer().render(profile)
+    assert result.warnings == []
+    m = next(p for p in yaml.safe_load(result.content)["proxies"] if p["name"] == "M")
+    assert (m["type"], m["dialer-proxy"], m["port-range"]) == ("mieru", "前置", "2090-2099")
+    assert "port" not in m

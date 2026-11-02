@@ -3,7 +3,8 @@
 from pydantic import ValidationError
 
 from routeforge.ir.node import (
-    Hysteria2Node, Node, Reality, SSNode, TLSOptions, Transport, TrojanNode, TuicNode, VlessNode, VmessNode,
+    port_range_bounds,
+    Hysteria2Node, MieruNode, Node, Reality, SSNode, TLSOptions, Transport, TrojanNode, TuicNode, VlessNode, VmessNode,
 )
 from routeforge.parsers.errors import ParseError, UnsupportedNode
 
@@ -29,6 +30,8 @@ def name_label(d: dict) -> str:
 
 def _from_clash(d: dict) -> Node:
     t = d["type"]
+    if t == "mieru":
+        return _mieru_from(d)
     common = dict(name=str(d["name"]), server=str(d["server"]), port=int(d["port"]), udp=bool(d.get("udp", True)))
     match t:
         case "ss":
@@ -54,6 +57,23 @@ def _from_clash(d: dict) -> Node:
                             congestion_control=d.get("congestion-controller") or None, tls=_tls_from(d, t))
         case _:
             raise ParseError(f"不支持的节点类型：{t}")
+
+
+def _mieru_from(d: dict) -> MieruNode:
+    port_range = _str_or_none(d.get("port-range")) or None
+    if port_range is not None:
+        port = port_range_bounds(port_range)[0]
+    elif d.get("port") is not None:
+        port = int(d["port"])
+    else:
+        raise ParseError("mieru：缺少 port 或 port-range")
+    return MieruNode(
+        name=str(d["name"]), server=str(d["server"]), port=port, udp=bool(d.get("udp", True)),
+        username=str(d["username"]), password=str(d["password"]), protocol=d["transport"],
+        port_range=port_range, multiplexing=_str_or_none(d.get("multiplexing")) or None,
+        handshake_mode=_str_or_none(d.get("handshake-mode")) or None,
+        traffic_pattern=_str_or_none(d.get("traffic-pattern")) or None,
+    )
 
 
 def _str_or_none(v) -> str | None:
@@ -135,6 +155,17 @@ def to_clash(node: Node) -> dict:
             d["password"] = node.password
             if node.congestion_control:
                 d["congestion-controller"] = node.congestion_control
+        case MieruNode():
+            if node.port_range:
+                del d["port"]
+                d["port-range"] = node.port_range
+            d["transport"] = node.protocol
+            d["username"] = node.username
+            d["password"] = node.password
+            for key, value in (("multiplexing", node.multiplexing), ("handshake-mode", node.handshake_mode),
+                               ("traffic-pattern", node.traffic_pattern)):
+                if value:
+                    d[key] = value
     _tls_to(d, node)
     _transport_to(d, node)
     if node.via:
@@ -148,8 +179,8 @@ def _tls_to(d: dict, node: Node) -> None:
         d["tls"] = tls is not None
     if tls is None:
         return
-    if node.type == "ss":
-        raise UnsupportedNode("ss 节点不支持 TLS 字段")
+    if node.type in ("ss", "mieru"):
+        raise UnsupportedNode(f"{node.type} 节点不支持 TLS 字段")
     if tls.sni:
         d[_SNI_KEY[node.type]] = tls.sni
     if tls.alpn:

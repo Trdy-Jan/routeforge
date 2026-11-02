@@ -2,7 +2,9 @@
 
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field, TypeAdapter
+import re
+
+from pydantic import BaseModel, Field, TypeAdapter, field_validator, model_validator
 
 
 class Reality(BaseModel):
@@ -84,8 +86,53 @@ class TuicNode(NodeBase):
     tls: TLSOptions | None = Field(default_factory=TLSOptions)
 
 
+_PORT_RANGE = re.compile(r"^(\d+)-(\d+)$")
+
+
+def port_range_bounds(value: str) -> tuple[int, int]:
+    m = _PORT_RANGE.match(value)
+    if not m:
+        raise ValueError(f"无效的端口区间：{value}")
+    start, end = int(m[1]), int(m[2])
+    if not 1 <= start <= end <= 65535:
+        raise ValueError(f"无效的端口区间：{value}")
+    return start, end
+
+
+class MieruNode(NodeBase):
+    type: Literal["mieru"] = "mieru"
+    username: str
+    password: str
+    protocol: Literal["TCP", "UDP"]
+    # 有区间时 port 为区间起始端口，输出时只写 port-range
+    port_range: str | None = None
+    multiplexing: str | None = None
+    handshake_mode: str | None = None
+    traffic_pattern: str | None = None
+
+    @field_validator("protocol", mode="before")
+    @classmethod
+    def _upper_protocol(cls, v):
+        return v.upper() if isinstance(v, str) else v
+
+    @field_validator("port_range")
+    @classmethod
+    def _check_range(cls, v: str | None) -> str | None:
+        if v is not None:
+            port_range_bounds(v)
+        return v
+
+    @model_validator(mode="after")
+    def _port_from_range(self) -> "MieruNode":
+        if self.port_range is not None:
+            start = port_range_bounds(self.port_range)[0]
+            if self.port != start:
+                object.__setattr__(self, "port", start)
+        return self
+
+
 Node = Annotated[
-    Union[SSNode, VmessNode, VlessNode, TrojanNode, Hysteria2Node, TuicNode],
+    Union[SSNode, VmessNode, VlessNode, TrojanNode, Hysteria2Node, TuicNode, MieruNode],
     Field(discriminator="type"),
 ]
 

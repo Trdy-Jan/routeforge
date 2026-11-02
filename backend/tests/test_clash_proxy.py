@@ -1,7 +1,7 @@
 import pytest
 
 from routeforge.ir.node import (
-    Hysteria2Node, Reality, SSNode, TLSOptions, Transport, TrojanNode, TuicNode, VlessNode, VmessNode,
+    Hysteria2Node, MieruNode, Reality, SSNode, TLSOptions, Transport, TrojanNode, TuicNode, VlessNode, VmessNode,
 )
 from routeforge.parsers.clash_proxy import from_clash, to_clash
 from routeforge.parsers.errors import ParseError, UnsupportedNode
@@ -113,3 +113,51 @@ def test_from_clash_ws_host_header_is_case_insensitive():
     node = from_clash({"name": "W", "type": "vmess", "server": "a.com", "port": 443, "uuid": UUID,
                        "network": "ws", "ws-opts": {"path": "/ws", "headers": {"host": "b.com"}}})
     assert node.transport.host == "b.com"
+
+
+MIERU = {"name": "M", "type": "mieru", "server": "203.0.113.10", "port": 11811, "transport": "TCP",
+         "udp": True, "username": "user1", "password": "pass1",
+         "multiplexing": "MULTIPLEXING_OFF", "handshake-mode": "HANDSHAKE_NO_WAIT"}
+
+
+def test_mieru_roundtrip_single_port():
+    node = from_clash(MIERU)
+    assert isinstance(node, MieruNode) and node.protocol == "TCP" and node.handshake_mode == "HANDSHAKE_NO_WAIT"
+    assert to_clash(node) == MIERU
+
+
+def test_mieru_port_range_wins_and_port_not_emitted():
+    d = {**MIERU, "port-range": "2090-2099", "transport": "udp"}
+    node = from_clash(d)
+    assert (node.port, node.port_range, node.protocol) == (2090, "2090-2099", "UDP")
+    out = to_clash(node)
+    assert out["port-range"] == "2090-2099" and "port" not in out
+
+
+def test_mieru_optional_fields_omitted():
+    d = {k: v for k, v in MIERU.items() if k not in ("multiplexing", "handshake-mode")}
+    assert to_clash(from_clash(d)) == d
+
+
+def test_mieru_unknown_multiplexing_passes_through():
+    assert to_clash(from_clash({**MIERU, "multiplexing": "MULTIPLEXING_FUTURE"}))["multiplexing"] == "MULTIPLEXING_FUTURE"
+
+
+@pytest.mark.parametrize("patch", [
+    {"transport": "QUIC"}, {"port-range": "2099-2090"}, {"port-range": "0-10"}, {"port-range": "abc"},
+])
+def test_mieru_invalid_fields(patch):
+    with pytest.raises(ParseError):
+        from_clash({**MIERU, **patch})
+
+
+def test_mieru_missing_port_and_range():
+    d = {k: v for k, v in MIERU.items() if k != "port"}
+    with pytest.raises(ParseError):
+        from_clash(d)
+
+
+def test_mieru_with_tls_is_unsupported():
+    node = from_clash(MIERU).model_copy(update={"tls": TLSOptions()})
+    with pytest.raises(UnsupportedNode):
+        to_clash(node)
