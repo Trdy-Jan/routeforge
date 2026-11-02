@@ -1,6 +1,6 @@
 import { request } from './client'
 import type {
-  FilterMember, ImportResult, LibraryCategory, LibraryIndex, RuleContent, NodeItem, OpenClashSettings, OpenClashSettingsInput, Preview, Profile, ProfileDetail, ProfileSummary, RefreshResult,
+  FilterMember, ImportItem, ImportResult, ParseResult, LibraryCategory, LibraryIndex, RuleContent, NodeItem, OpenClashSettings, OpenClashSettingsInput, Preview, Profile, ProfileDetail, ProfileSummary, RefreshResult,
   PushStatus, Source, SourceInput, SourcePatch, TemplateInfo,
 } from './types'
 
@@ -19,8 +19,10 @@ export const api = {
   updateSource: (id: number, body: SourcePatch) => request<Source>('PATCH', `/api/sources/${id}`, body),
   deleteSource: (id: number) => request<void>('DELETE', `/api/sources/${id}`),
   refreshSource: (id: number) => request<RefreshResult>('POST', `/api/sources/${id}/refresh`),
-  importNodes: (id: number, text: string) =>
-    request<ImportResult>('POST', `/api/sources/${id}/nodes/import`, { text }),
+  parseNodes: (id: number, text: string) =>
+    request<ParseResult>('POST', `/api/sources/${id}/nodes/parse`, { text }),
+  importNodes: (id: number, nodes: ImportItem[]) =>
+    request<ImportResult>('POST', `/api/sources/${id}/nodes/import`, { nodes }),
 
   listNodes: (params: { source_id?: number | null; q?: string } = {}) =>
     request<NodeItem[]>('GET', '/api/nodes' + buildQuery(params)),

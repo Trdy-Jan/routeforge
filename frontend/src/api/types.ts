@@ -35,9 +35,28 @@ export interface LineError {
   message: string
 }
 
+export interface ParsedNode {
+  name: string
+  type: string
+  server: string
+  port: number
+  port_range: string | null
+  config: Record<string, unknown>
+}
+
+export interface ParseResult {
+  nodes: ParsedNode[]
+  errors: LineError[]
+  existing_names: string[]
+}
+
+export interface ImportItem {
+  name: string
+  config: Record<string, unknown>
+}
+
 export interface ImportResult {
   added: number
-  errors: LineError[]
 }
 
 export interface RefreshResult {
@@ -56,6 +75,7 @@ export interface NodeItem {
   type: string
   server: string
   port: number
+  port_range: string | null
   enabled: boolean
   position: number
   data: Record<string, unknown>
