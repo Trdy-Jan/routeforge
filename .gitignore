@@ -8,3 +8,5 @@ data/
 *.db
 .env
 jar
+
+.superpowers/
