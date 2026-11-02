@@ -51,8 +51,11 @@ export const api = {
 
   ruleLibrary: () => request<LibraryIndex>('GET', '/api/rule-library'),
   refreshRuleLibrary: () => request<LibraryIndex>('POST', '/api/rule-library/refresh'),
-  ruleContent: (category: LibraryCategory, name: string) =>
-    request<RuleContent>('GET', `/api/rule-library/${category}/${encodeURIComponent(name)}/content`),
+  ruleContent: (category: LibraryCategory, name: string, params: { q?: string; offset?: number; limit?: number } = {}) =>
+    request<RuleContent>(
+      'GET',
+      `/api/rule-library/${category}/${encodeURIComponent(name)}/content` + buildQuery(params),
+    ),
 
   getOpenClash: () => request<OpenClashSettings>('GET', '/api/openclash/settings'),
   saveOpenClash: (body: OpenClashSettingsInput) => request<OpenClashSettings>('PUT', '/api/openclash/settings', body),

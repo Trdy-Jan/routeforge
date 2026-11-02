@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { NodeItem, Profile, Source } from '../api/types'
 import {
-  insertBeforeMatch, memberLabel, moveItem, newGroup, newRule, renameGroup, moveRule, reorder, sameMember,
+  insertBeforeMatch, memberLabel, nodeLabel, moveItem, newGroup, newRule, renameGroup, moveRule, reorder, sameMember,
   maskedSubscriptionUrl, splitRuleValues, subscriptionUrl, targetOptions,
 } from './profile'
 
@@ -71,9 +71,9 @@ describe('profile helpers', () => {
   })
 
   it('memberLabel describes each member kind', () => {
-    const nodes = new Map<number, NodeItem>([[1, { id: 1, name: '香港 01' } as NodeItem]])
+    const nodes = new Map<number, NodeItem>([[1, { id: 1, name: '香港 01', source_id: 2 } as NodeItem]])
     const sources = new Map<number, Source>([[2, { id: 2, name: '机场' } as Source]])
-    expect(memberLabel({ kind: 'node', node_id: 1 }, nodes, sources)).toBe('香港 01')
+    expect(memberLabel({ kind: 'node', node_id: 1 }, nodes, sources)).toBe('香港 01（机场）')
     expect(memberLabel({ kind: 'node', node_id: 9 }, nodes, sources)).toBe('#9（已删除）')
     expect(memberLabel({ kind: 'group', name: '自动' }, nodes, sources)).toBe('分组：自动')
     expect(memberLabel({ kind: 'builtin', name: 'REJECT' }, nodes, sources)).toBe('REJECT')
@@ -81,6 +81,12 @@ describe('profile helpers', () => {
       .toBe('过滤：机场 /HK/ 排除 /x0/')
     expect(memberLabel({ kind: 'filter', source_id: null, name_regex: '', exclude_regex: null }, nodes, sources))
       .toBe('过滤：全部节点源 /(全部)/')
+  })
+
+  it('nodeLabel appends the source name', () => {
+    const sources = new Map<number, Source>([[2, { id: 2, name: '机场' } as Source]])
+    expect(nodeLabel({ id: 1, name: '香港 01', source_id: 2 } as NodeItem, sources)).toBe('香港 01（机场）')
+    expect(nodeLabel({ id: 1, name: '香港 01', source_id: 7 } as NodeItem, sources)).toBe('香港 01（?）')
   })
 
   it('targetOptions lists groups then builtins', () => {

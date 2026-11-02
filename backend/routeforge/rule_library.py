@@ -26,7 +26,11 @@ CATEGORIES: dict[str, tuple[str, str]] = {
 INDEX_TTL = 86400
 CONTENT_TTL = 86400
 CONTENT_CACHE_SIZE = 50
-MAX_LINES = 50000
+# 单条规则最多缓存的行数：只是防止异常大文件占满内存，正常规则（最大约十余万行）不会触发
+MAX_LINES = 500000
+PAGE_SIZE = 200
+MAX_PAGE_SIZE = 1000
+MAX_QUERY_LENGTH = 200
 
 
 def _path(category: str, name: str, ext: str) -> str:
@@ -60,9 +64,18 @@ class LibraryIndex:
 
 @dataclass
 class RuleContent:
+    """规则内容的一页。total 为规则总行数，matched 为按 q 筛选后的行数，lines 为从 offset 开始的一页。"""
+
     total: int
+    matched: int
+    offset: int
     lines: list[str]
-    truncated: bool
+
+
+@dataclass(frozen=True)
+class _CachedLines:
+    lines: list[str]
+    lowered: list[str]  # 预先转小写，检索时不必每次处理全部行
 
 
 class LibraryUnavailable(Exception):
@@ -85,7 +98,7 @@ class RuleLibrary:
         self._fetched_at = 0.0
         self._updated_at: datetime | None = None
         self._error: str | None = None
-        self._contents: OrderedDict[tuple[str, str], tuple[float, RuleContent]] = OrderedDict()
+        self._contents: OrderedDict[tuple[str, str], tuple[float, _CachedLines]] = OrderedDict()
 
     def index(self, force: bool = False) -> LibraryIndex:
         with self._lock:
@@ -120,7 +133,19 @@ class RuleLibrary:
                     items.append(LibraryItem(category, name, behavior, item_url(category, name)))
         return items
 
-    def content(self, category: str, name: str) -> RuleContent:
+    def content(self, category: str, name: str, q: str = "", offset: int = 0, limit: int = PAGE_SIZE) -> RuleContent:
+        """返回规则内容的一页；q 非空时只保留包含 q 的行（不区分大小写）。"""
+        cached = self._lines(category, name)
+        needle = q.strip().lower()
+        if needle:
+            matched = [line for line, low in zip(cached.lines, cached.lowered) if needle in low]
+        else:
+            matched = cached.lines
+        offset = max(offset, 0)
+        return RuleContent(total=len(cached.lines), matched=len(matched), offset=offset,
+                           lines=matched[offset:offset + max(limit, 0)])
+
+    def _lines(self, category: str, name: str) -> _CachedLines:
         self.index()
         key = (category, name)
         with self._lock:
@@ -135,8 +160,8 @@ class RuleLibrary:
             resp.raise_for_status()
         except Exception as exc:  # noqa: BLE001
             raise LibraryUnavailable(f"无法获取规则内容：{_describe(exc)}") from exc
-        lines = [s for s in (raw.strip() for raw in resp.text.splitlines()) if s and not s.startswith("#")]
-        result = RuleContent(total=len(lines), lines=lines[:MAX_LINES], truncated=len(lines) > MAX_LINES)
+        lines = [s for s in (raw.strip() for raw in resp.text.splitlines()) if s and not s.startswith("#")][:MAX_LINES]
+        result = _CachedLines(lines=lines, lowered=[line.lower() for line in lines])
         with self._lock:
             self._contents[key] = (self._clock(), result)
             self._contents.move_to_end(key)

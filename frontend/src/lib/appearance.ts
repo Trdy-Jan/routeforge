@@ -13,13 +13,14 @@ export interface Accent {
   signal: string
 }
 
+// 浅色用较深的色阶（白字按钮对比度 ≥ 4.5），深色用较亮的色阶（配深色按钮文字）
 export const ACCENTS: Accent[] = [
-  { key: 'teal', label: '青', light: '#0a7b83', dark: '#2bb3b1', signal: '#3fd0c9' },
-  { key: 'blue', label: '蓝', light: '#2563c9', dark: '#5b95f0', signal: '#7ab4ff' },
-  { key: 'violet', label: '紫', light: '#6a4cc2', dark: '#9a83f0', signal: '#b9a4ff' },
-  { key: 'green', label: '绿', light: '#2f8a4c', dark: '#4fbf75', signal: '#6fd897' },
-  { key: 'orange', label: '橙', light: '#c2610c', dark: '#ef9447', signal: '#ffb06a' },
-  { key: 'rose', label: '玫红', light: '#c23a68', dark: '#ee6d97', signal: '#ff8db4' },
+  { key: 'teal', label: '青', light: '#0f766e', dark: '#2dd4bf', signal: '#5eead4' },
+  { key: 'blue', label: '蓝', light: '#2563eb', dark: '#60a5fa', signal: '#93c5fd' },
+  { key: 'violet', label: '紫', light: '#6d28d9', dark: '#a78bfa', signal: '#c4b5fd' },
+  { key: 'green', label: '绿', light: '#15803d', dark: '#4ade80', signal: '#86efac' },
+  { key: 'orange', label: '橙', light: '#c2410c', dark: '#fb923c', signal: '#fdba74' },
+  { key: 'rose', label: '玫红', light: '#be123c', dark: '#fb7185', signal: '#fda4af' },
 ]
 
 export const STORAGE_KEY = 'rf-appearance'

@@ -36,7 +36,22 @@ def test_index_unavailable_returns_502(admin):
 def test_content_ok(admin, library_routes):
     resp = admin.get("/api/rule-library/geosite/openai/content")
     assert resp.status_code == 200
-    assert resp.json() == {"total": 2, "lines": ["openai.com", "+.chatgpt.com"], "truncated": False}
+    assert resp.json() == {"total": 2, "matched": 2, "offset": 0, "lines": ["openai.com", "+.chatgpt.com"]}
+
+
+def test_content_search_and_paging(admin, library_routes):
+    resp = admin.get("/api/rule-library/geosite/openai/content", params={"q": "CHAT", "offset": 0, "limit": 1})
+    assert resp.json() == {"total": 2, "matched": 1, "offset": 0, "lines": ["+.chatgpt.com"]}
+    second = admin.get("/api/rule-library/geosite/openai/content", params={"offset": 1, "limit": 1})
+    assert second.json()["lines"] == ["+.chatgpt.com"]
+
+
+def test_content_rejects_bad_paging(admin, library_routes):
+    url = "/api/rule-library/geosite/openai/content"
+    assert admin.get(url, params={"limit": 0}).status_code == 422
+    assert admin.get(url, params={"limit": 5000}).status_code == 422
+    assert admin.get(url, params={"offset": -1}).status_code == 422
+    assert admin.get(url, params={"q": "x" * 300}).status_code == 422
 
 
 def test_content_name_with_bang(admin, library_routes):

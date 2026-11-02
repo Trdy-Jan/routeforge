@@ -5,7 +5,7 @@ import {
 } from 'naive-ui'
 import type { FilterMember, GroupType, Member, NodeItem, Profile, Source } from '../api/types'
 import { useDragSort } from '../lib/dragSort'
-import { BUILTIN_TARGETS, memberLabel, moveItem, newGroup, renameGroup, reorder, sameMember } from '../lib/profile'
+import { BUILTIN_TARGETS, memberLabel, moveItem, nodeLabel, newGroup, renameGroup, reorder, sameMember } from '../lib/profile'
 import FilterForm from './FilterForm.vue'
 
 const profile = defineModel<Profile>({ required: true })
@@ -24,7 +24,7 @@ const GROUP_TYPES = [
 const nodeMap = computed(() => new Map(props.nodes.map((n) => [n.id, n])))
 const sourceMap = computed(() => new Map(props.sources.map((s) => [s.id, s])))
 const nodeOptions = computed(() =>
-  props.nodes.map((n) => ({ label: `${n.name}（${sourceMap.value.get(n.source_id)?.name ?? '?'}）`, value: n.id })),
+  props.nodes.map((n) => ({ label: nodeLabel(n, sourceMap.value), value: n.id })),
 )
 
 const drafts = ref<Record<number, string>>({})
@@ -131,11 +131,12 @@ function submitFilter(f: FilterMember) {
       v-bind="drag.row('groups', i, dropGroup)"
     >
       <template #header>
-        <NSpace align="center">
+        <div class="group__head">
           <span v-bind="drag.handle('groups', i)">⠿</span>
           <NInput
             :value="drafts[i] ?? g.name"
-            style="width: 200px"
+            class="group__name"
+            aria-label="分组名"
             @update:value="(v: string) => (drafts[i] = v)"
             @blur="commitRename(i)"
             @keyup.enter="commitRename(i)"
@@ -143,10 +144,10 @@ function submitFilter(f: FilterMember) {
           <NSelect
             :value="g.type"
             :options="GROUP_TYPES"
-            style="width: 130px"
+            class="group__type"
             @update:value="(v: unknown) => (g.type = v as GroupType)"
           />
-        </NSpace>
+        </div>
       </template>
       <template #header-extra>
         <NSpace size="small" :wrap="false">
@@ -158,7 +159,7 @@ function submitFilter(f: FilterMember) {
 
       <div v-if="g.type !== 'select'" class="probe">
         <span class="edit-row__label">测速地址</span>
-        <NInput v-model:value="g.url" size="small" class="mono" style="width: 300px" />
+        <NInput v-model:value="g.url" size="small" class="mono probe__url" />
         <span class="edit-row__label">间隔</span>
         <NInputNumber
           :value="g.interval"
@@ -200,14 +201,14 @@ function submitFilter(f: FilterMember) {
       </div>
       <NText v-if="!g.members.length" depth="3" class="member-empty">暂无成员（空分组在生成配置时会自动加入 DIRECT）</NText>
 
-      <NSpace class="adders" size="small">
+      <div class="adders">
         <NSelect
           :value="null"
           :options="nodeOptions"
           filterable
           placeholder="添加节点"
           size="small"
-          style="width: 260px"
+          class="adders__node"
           @update:value="(v: unknown) => addMember(i, { kind: 'node', node_id: v as number })"
         />
         <NSelect
@@ -215,13 +216,13 @@ function submitFilter(f: FilterMember) {
           :options="groupOptions(g.name)"
           placeholder="添加分组"
           size="small"
-          style="width: 160px"
+          class="adders__group"
           @update:value="(v: unknown) => addMember(i, { kind: 'group', name: v as string })"
         />
         <NButton size="small" secondary @click="addMember(i, { kind: 'builtin', name: 'DIRECT' })">+ DIRECT</NButton>
         <NButton size="small" secondary @click="addMember(i, { kind: 'builtin', name: 'REJECT' })">+ REJECT</NButton>
         <NButton size="small" secondary type="primary" @click="filterFor = i">+ 过滤器</NButton>
-      </NSpace>
+      </div>
     </NCard>
     <NButton dashed block @click="addGroup">新建分组</NButton>
   </NSpace>
@@ -240,6 +241,26 @@ function submitFilter(f: FilterMember) {
 <style scoped>
 .group {
   border-radius: 10px;
+}
+.group__head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+.group__name {
+  width: 200px;
+}
+.group__type {
+  width: 130px;
+}
+.probe__url {
+  width: 300px;
+}
+.adders__node {
+  width: 260px;
+}
+.adders__group {
+  width: 160px;
 }
 .group + .group {
   margin-top: 4px;
@@ -282,7 +303,56 @@ function submitFilter(f: FilterMember) {
 }
 .adders {
   border-top: 1px dashed var(--rf-line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 10px;
   padding-top: 10px;
+}
+
+@media (max-width: 640px) {
+  /* 标题行：名称占满剩余宽度；上移/下移/删除换到下一行右侧 */
+  .group :deep(.n-card-header) {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .group :deep(.n-card-header__main) {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .group :deep(.n-card-header__extra) {
+    margin-left: auto;
+  }
+  .group__name {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+  }
+  .group__type {
+    flex: none;
+    width: 116px;
+  }
+  .probe__url {
+    width: 100%;
+  }
+  .member {
+    gap: 6px;
+  }
+  .member :deep(.n-tag) {
+    max-width: calc(100vw - 190px);
+  }
+  .member :deep(.n-tag__content) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* 触屏没有悬停：操作按钮始终可见 */
+  .member__ops {
+    opacity: 1;
+  }
+  .adders__node,
+  .adders__group {
+    flex: 1 1 100%;
+    width: auto;
+  }
 }
 </style>

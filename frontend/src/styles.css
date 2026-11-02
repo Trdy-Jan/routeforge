@@ -1,42 +1,44 @@
 :root {
-  --rf-ink: #16324f;
-  --rf-ink-2: #1f4366;
-  --rf-ink-line: #3d5f80;
-  --rf-ink-text: #c4d2df;
-  --rf-primary: #0a7b83;
-  --rf-signal: #3fd0c9;
-  --rf-canvas: #eef2f5;
+  /* 中性灰阶（仅极轻微冷调）：层次靠明度区分，不靠色相 */
+  --rf-canvas: #f6f6f7;
   --rf-surface: #ffffff;
-  --rf-line: #dce3ea;
-  --rf-text: #1c2733;
-  --rf-muted: #5e6b78;
-  --rf-faint: #8a96a3;
-  --rf-warning: #c9820a;
-  --rf-error: #c8384b;
-  --rf-success: #2f8f57;
-  --rf-line-soft: #edf1f4;
-  --rf-tint: color-mix(in srgb, var(--rf-primary) 6%, var(--rf-surface));
+  --rf-raised: #ffffff;
+  --rf-sunken: #f3f3f5;
+  --rf-line: #e4e4e8;
+  --rf-line-soft: #efeff2;
+  --rf-text: #17171a;
+  --rf-muted: #5c5c66;
+  --rf-faint: #9a9aa4;
+  --rf-shadow: 0 1px 2px rgb(16 16 20 / 0.04);
+  --rf-shadow-pop: 0 8px 28px -6px rgb(16 16 20 / 0.16), 0 0 0 1px rgb(16 16 20 / 0.04);
+  /* 主色与高亮色由 appearance.ts 按所选主题色内联下发，这里是默认值 */
+  --rf-primary: #0f766e;
+  --rf-signal: #5eead4;
+  --rf-success: #15803d;
+  --rf-warning: #b45309;
+  --rf-error: #dc2626;
+  --rf-tint: color-mix(in srgb, var(--rf-primary) 7%, var(--rf-surface));
   --rf-sans: "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei UI",
     "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
   --rf-mono: "JetBrains Mono", "Cascadia Mono", "SF Mono", Consolas, "Microsoft YaHei UI", monospace;
 }
 
 :root[data-theme="dark"] {
-  --rf-ink: #0b131c;
-  --rf-ink-2: #172433;
-  --rf-ink-line: #2c4258;
-  --rf-ink-text: #a9bacb;
-  --rf-canvas: #0f141a;
-  --rf-surface: #182029;
-  --rf-line: #2a3541;
-  --rf-line-soft: #222c37;
-  --rf-text: #e2e8ee;
-  --rf-muted: #9aa7b4;
-  --rf-faint: #6f7c89;
-  --rf-warning: #e0a33a;
-  --rf-error: #e5677a;
-  --rf-success: #4fb879;
-  --rf-tint: color-mix(in srgb, var(--rf-primary) 10%, var(--rf-surface));
+  --rf-canvas: #0f0f11;
+  --rf-surface: #17171a;
+  --rf-raised: #1d1d21;
+  --rf-sunken: #121214;
+  --rf-line: #2a2a2f;
+  --rf-line-soft: #212125;
+  --rf-text: #ececef;
+  --rf-muted: #a0a0aa;
+  --rf-faint: #6e6e78;
+  --rf-shadow: none;
+  --rf-shadow-pop: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.06);
+  --rf-success: #4ade80;
+  --rf-warning: #fbbf24;
+  --rf-error: #f87171;
+  --rf-tint: color-mix(in srgb, var(--rf-primary) 12%, var(--rf-surface));
 }
 
 * {
@@ -93,6 +95,7 @@ body {
   background: var(--rf-surface);
   border: 1px solid var(--rf-line);
   border-radius: 10px;
+  box-shadow: var(--rf-shadow);
 }
 
 /* 编辑器里的一行（规则 / 规则集 / 链式代理） */
@@ -154,4 +157,86 @@ body {
 .drag-handle--locked {
   cursor: default;
   visibility: hidden;
+}
+
+/* —— 手机卡片列表：替代横向拖动的表格 —— */
+.m-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.m-card {
+  background: var(--rf-surface);
+  border: 1px solid var(--rf-line);
+  border-radius: 12px;
+  box-shadow: var(--rf-shadow);
+  padding: 14px 14px 10px;
+}
+.m-card--off {
+  opacity: 0.62;
+}
+.m-card__head {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+.m-card__title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.m-card__sub {
+  color: var(--rf-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+/* 键值信息：两列网格，标签在左 */
+.m-card__meta {
+  display: grid;
+  font-size: 13px;
+  gap: 4px 12px;
+  grid-template-columns: auto 1fr;
+  margin: 10px 0 0;
+}
+.m-card__meta dt {
+  color: var(--rf-faint);
+}
+.m-card__meta dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.m-card__actions {
+  border-top: 1px solid var(--rf-line-soft);
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 8px;
+}
+.m-empty {
+  padding: 40px 0;
+}
+
+/* 手机：对话框占满屏宽，编辑行内的固定宽度控件不超出屏幕 */
+@media (max-width: 640px) {
+  .n-card.n-modal {
+    max-width: calc(100vw - 24px) !important;
+  }
+  .edit-row > * {
+    max-width: 100%;
+  }
+}
+
+/* 手机：触屏不支持 HTML5 拖拽，隐藏拖动把手（各列表都有上移/下移按钮） */
+@media (max-width: 640px) {
+  .drag-handle {
+    display: none;
+  }
 }

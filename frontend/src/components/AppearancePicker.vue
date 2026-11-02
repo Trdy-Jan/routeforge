@@ -7,17 +7,23 @@ const modes = [
   { value: 'dark', label: '深色' },
   { value: 'system', label: '跟随系统' },
 ] as const
+
+// menu：手机上作为「更多」菜单，图标换成三条横线，面板底部放额外操作（slot）
+withDefaults(defineProps<{ variant?: 'theme' | 'menu' }>(), { variant: 'theme' })
 </script>
 
 <template>
-  <NPopover trigger="click" placement="right-end" :show-arrow="false">
+  <NPopover trigger="click" placement="bottom-end" :show-arrow="false">
     <template #trigger>
-      <button type="button" class="trigger" title="外观">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <button type="button" class="trigger" :title="variant === 'menu' ? '菜单' : '外观'">
+        <svg v-if="variant === 'menu'" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <path d="M3 5h12M3 9h12M3 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+        </svg>
+        <svg v-else width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.6" />
           <path d="M8 1.8 A6.2 6.2 0 0 1 8 14.2 Z" fill="currentColor" />
         </svg>
-        <span class="trigger__label">外观</span>
+        <span class="trigger__label">{{ variant === 'menu' ? '菜单' : '外观' }}</span>
       </button>
     </template>
     <div class="panel">
@@ -40,6 +46,7 @@ const modes = [
           @click="appearance.accent = a.key"
         />
       </div>
+      <div v-if="$slots.default" class="panel__extra"><slot /></div>
     </div>
   </NPopover>
 </template>
@@ -50,19 +57,26 @@ const modes = [
   background: none;
   border: 0;
   border-radius: 6px;
-  color: #8fa7bd;
+  color: var(--rf-muted);
   cursor: pointer;
   display: flex;
-  font: inherit;
-  font-size: 13px;
-  gap: 8px;
-  padding: 8px 10px;
-  text-align: left;
-  width: 100%;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+  width: 32px;
 }
 .trigger:hover {
-  background: var(--rf-ink-2);
-  color: #fff;
+  background: var(--rf-line-soft);
+  color: var(--rf-text);
+}
+.trigger__label {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .panel {
@@ -70,6 +84,11 @@ const modes = [
   flex-direction: column;
   gap: 8px;
   padding: 4px 2px;
+}
+.panel__extra {
+  border-top: 1px solid var(--rf-line);
+  margin-top: 6px;
+  padding-top: 6px;
 }
 .panel__title {
   color: var(--rf-muted);
@@ -98,15 +117,5 @@ const modes = [
 }
 .swatch--active {
   box-shadow: 0 0 0 2px var(--rf-surface), 0 0 0 4px var(--c);
-}
-
-@media (max-width: 860px) {
-  .trigger {
-    justify-content: center;
-    padding: 8px 0;
-  }
-  .trigger__label {
-    display: none;
-  }
 }
 </style>

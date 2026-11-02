@@ -69,7 +69,8 @@ function remove(index: number) {
     <div v-for="(p, i) in profile.rule_providers" :key="i" class="edit-row">
       <NInput
         :value="drafts[i] ?? p.name"
-        style="width: 180px"
+        class="pv-name"
+        aria-label="规则集名称"
         @update:value="(v: string) => (drafts[i] = v)"
         @blur="commitRename(i)"
         @keyup.enter="commitRename(i)"
@@ -77,32 +78,48 @@ function remove(index: number) {
       <NSelect
         :value="p.behavior"
         :options="BEHAVIORS"
-        style="width: 150px"
+        class="pv-behavior"
         @update:value="(v: unknown) => (p.behavior = v as RuleProvider['behavior'])"
       />
       <NSelect
         :value="p.format"
         :options="FORMATS"
-        style="width: 90px"
+        class="pv-format"
         @update:value="(v: unknown) => (p.format = v as RuleProvider['format'])"
       />
-      <NInput v-model:value="p.url" class="mono" placeholder="https://..." style="flex: 1; min-width: 220px" />
+      <NInput v-model:value="p.url" class="mono pv-url" placeholder="https://..." />
       <NInputNumber
         :value="p.interval"
         :min="60"
-        style="width: 130px"
+        class="pv-interval"
         @update:value="(v: number | null) => (p.interval = v ?? 86400)"
       >
         <template #suffix>秒</template>
       </NInputNumber>
       <span class="usage"><span class="mono">{{ usage(p.name) }}</span> 条规则引用</span>
-      <NButton size="tiny" quaternary type="error" @click="remove(i)">✕</NButton>
+      <NButton size="tiny" quaternary type="error" class="pv-remove" @click="remove(i)">✕</NButton>
     </div>
     <NButton dashed block @click="add">添加规则集</NButton>
   </NSpace>
 </template>
 
 <style scoped>
+.pv-name {
+  width: 180px;
+}
+.pv-behavior {
+  width: 150px;
+}
+.pv-format {
+  width: 90px;
+}
+.pv-url {
+  flex: 1;
+  min-width: 220px;
+}
+.pv-interval {
+  width: 130px;
+}
 .hint {
   color: var(--rf-muted);
   font-size: 13px;
@@ -112,5 +129,47 @@ function remove(index: number) {
   color: var(--rf-muted);
   font-size: 13px;
   white-space: nowrap;
+}
+
+/* 手机：名称/删除，类型/格式，地址，间隔/引用数 */
+@media (max-width: 640px) {
+  .edit-row {
+    border: 1px solid var(--rf-line);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    padding: 10px;
+  }
+  .edit-row:last-of-type {
+    border-bottom: 1px solid var(--rf-line);
+  }
+  .pv-name {
+    flex: 1 1 calc(100% - 48px);
+    min-width: 0;
+    width: auto;
+  }
+  .pv-remove {
+    order: 1;
+  }
+  .pv-behavior {
+    flex: 1;
+    order: 2;
+    width: auto;
+  }
+  .pv-format {
+    order: 3;
+  }
+  .pv-url {
+    flex-basis: 100%;
+    min-width: 0;
+    order: 4;
+  }
+  .pv-interval {
+    flex: 1;
+    order: 5;
+    width: auto;
+  }
+  .usage {
+    order: 6;
+  }
 }
 </style>

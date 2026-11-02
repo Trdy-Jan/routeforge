@@ -82,24 +82,25 @@ function rotate() {
   padding-left: 20px;
 }
 .code {
-  background: #10263c;
+  background: var(--rf-sunken);
+  border: 1px solid var(--rf-line);
   border-radius: 10px;
   overflow: hidden;
 }
 .code__bar {
   align-items: center;
-  border-bottom: 1px solid #22405e;
-  color: #9fb4c8;
+  border-bottom: 1px solid var(--rf-line);
+  color: var(--rf-muted);
   display: flex;
   font-size: 12px;
   justify-content: space-between;
   padding: 6px 8px 6px 14px;
 }
 .code__btn {
-  color: #c4d2df;
+  color: var(--rf-muted);
 }
 .yaml {
-  color: #dbe6ef;
+  color: var(--rf-text);
   font-family: var(--rf-mono);
   font-size: 12.5px;
   line-height: 1.6;
@@ -110,7 +111,7 @@ function rotate() {
   tab-size: 2;
 }
 .code__empty {
-  color: #9fb4c8;
+  color: var(--rf-muted);
   font-size: 13px;
   margin: 0;
   padding: 16px;

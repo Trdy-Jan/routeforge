@@ -105,7 +105,7 @@ function remove(i: number) {
       <NSelect
         :value="r.type"
         :options="typeOptions"
-        style="width: 170px"
+        class="rule-type"
         @update:value="(v: unknown) => setType(r, v as RuleType)"
       />
       <NSelect
@@ -134,7 +134,7 @@ function remove(i: number) {
       <NSelect
         :value="r.target"
         :options="targets"
-        style="width: 170px"
+        class="rule-target"
         @update:value="(v: unknown) => (r.target = v as string)"
       />
       <span class="slot-opt">
@@ -146,7 +146,7 @@ function remove(i: number) {
           <NButton size="tiny" quaternary :disabled="isLastMovable(i)" @click="move(i, 1)">↓</NButton>
         </template>
       </span>
-      <NButton size="tiny" quaternary type="error" @click="remove(i)">✕</NButton>
+      <NButton size="tiny" quaternary type="error" class="rule-remove" @click="remove(i)">✕</NButton>
     </div>
     <div class="add-row">
       <NButton dashed class="add-row__main" @click="add">添加规则（插在 MATCH 之前）</NButton>
@@ -182,6 +182,10 @@ function remove(i: number) {
 </template>
 
 <style scoped>
+.rule-type,
+.rule-target {
+  width: 170px;
+}
 .add-row {
   display: flex;
   gap: 8px;
@@ -226,5 +230,64 @@ function remove(i: number) {
 .edit-row--match {
   background: var(--rf-tint);
   border-radius: 6px;
+}
+
+/* 手机：每条规则分三行——序号/类型/操作，值，→ 目标 */
+@media (max-width: 640px) {
+  .edit-row {
+    border: 1px solid var(--rf-line);
+    border-radius: 10px;
+    gap: 8px 6px;
+    margin-bottom: 8px;
+    padding: 10px;
+  }
+  .edit-row:last-of-type {
+    border-bottom: 1px solid var(--rf-line);
+  }
+  .idx {
+    order: 1;
+    text-align: left;
+    width: auto;
+  }
+  .rule-type {
+    flex: 1;
+    min-width: 0;
+    order: 2;
+    width: auto;
+  }
+  .slot-move {
+    order: 3;
+    width: auto;
+  }
+  .rule-remove {
+    order: 4;
+  }
+  .value-field {
+    flex: 1 1 100%;
+    min-width: 0;
+    order: 5;
+  }
+  .match-text {
+    font-size: 13px;
+  }
+  .arrow {
+    order: 6;
+  }
+  .rule-target {
+    flex: 1;
+    min-width: 0;
+    order: 7;
+    width: auto;
+  }
+  .slot-opt {
+    order: 8;
+    width: auto;
+  }
+  .slot-opt:empty {
+    display: none;
+  }
+  .add-row {
+    flex-direction: column;
+  }
 }
 </style>

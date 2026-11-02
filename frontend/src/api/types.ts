@@ -224,8 +224,10 @@ export interface LibraryIndex {
   items: LibraryItem[]
 }
 
+/** 规则内容的一页：total 为规则总行数，matched 为按检索词筛选后的行数 */
 export interface RuleContent {
   total: number
+  matched: number
+  offset: number
   lines: string[]
-  truncated: boolean
 }

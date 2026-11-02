@@ -7,11 +7,12 @@ const sharedIndex = ref<LibraryIndex | null>(null)
 </script>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { NAlert, NButton, NEmpty, NInput, NSpin, NTab, NTabs, NVirtualList } from 'naive-ui'
 import { api } from '../api'
-import type { LibraryCategory, LibraryItem, RuleContent } from '../api/types'
+import type { LibraryCategory, LibraryItem } from '../api/types'
 import { formatTime } from '../lib/format'
+import { usePagedContent } from '../lib/pagedContent'
 import { LIBRARY_CATEGORIES, searchLibrary } from '../lib/ruleLibrary'
 
 defineSlots<{ actions?: (props: { item: LibraryItem }) => unknown }>()
@@ -21,17 +22,23 @@ const query = ref('')
 const loading = ref(false)
 const loadError = ref('')
 const selected = ref<LibraryItem | null>(null)
-const content = ref<RuleContent | null>(null)
-const contentLoading = ref(false)
-const contentError = ref('')
 const lineFilter = ref('')
 
-const results = computed(() => (sharedIndex.value ? searchLibrary(sharedIndex.value.items, category.value, query.value) : []))
-const filteredLines = computed(() => {
-  const lines = content.value?.lines ?? []
-  const q = lineFilter.value.trim().toLowerCase()
-  return q ? lines.filter((l) => l.toLowerCase().includes(q)) : lines
+// 规则内容由服务端分页下发；筛选也在服务端完成，浏览器只持有已滚动到的部分
+const LINE_HEIGHT = 24
+const paged = usePagedContent((q, offset, limit) => {
+  const item = selected.value
+  if (!item) return Promise.reject(new Error('未选择规则'))
+  return api.ruleContent(item.category, item.name, { q, offset, limit })
 })
+const lineItems = computed(() => paged.lines.value.map((l, i) => ({ key: i, l })))
+// 刚选中规则、第一页尚未返回：整块显示加载状态；之后检索时保留筛选框，只在列表上显示加载
+const firstLoad = ref(false)
+watch(paged.ready, (r) => {
+  if (r) firstLoad.value = false
+})
+
+const results = computed(() => (sharedIndex.value ? searchLibrary(sharedIndex.value.items, category.value, query.value) : []))
 
 async function load(force = false) {
   loading.value = true
@@ -49,25 +56,35 @@ onMounted(() => {
   if (!sharedIndex.value) load()
 })
 
-async function select(item: LibraryItem) {
+let filterTimer: ReturnType<typeof setTimeout> | undefined
+
+function select(item: LibraryItem) {
+  clearTimeout(filterTimer)
   selected.value = item
-  content.value = null
-  contentError.value = ''
   lineFilter.value = ''
-  contentLoading.value = true
-  try {
-    const result = await api.ruleContent(item.category, item.name)
-    if (selected.value === item) content.value = result
-  } catch (e) {
-    if (selected.value === item) contentError.value = (e as Error).message
-  } finally {
-    if (selected.value === item) contentLoading.value = false
-  }
+  firstLoad.value = true
+  paged.reset()
+}
+
+// 输入停顿 300ms 后再向服务端检索，避免每个字符都发请求
+watch(lineFilter, (q) => {
+  clearTimeout(filterTimer)
+  if (!selected.value || q.trim() === paged.query.value) return
+  filterTimer = setTimeout(() => paged.reset(q), 300)
+})
+onUnmounted(() => clearTimeout(filterTimer))
+
+// 接近底部（剩余不足一屏）时加载下一页
+function onLinesScroll(e: Event) {
+  const el = e.target as HTMLElement
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - LINE_HEIGHT * 20) paged.loadMore()
 }
 
 watch(category, () => {
+  clearTimeout(filterTimer)
   selected.value = null
-  content.value = null
+  lineFilter.value = ''
+  paged.clear()
 })
 </script>
 
@@ -113,7 +130,7 @@ watch(category, () => {
       </div>
 
       <div class="rl__preview">
-        <div v-if="!selected" class="rl__hint">在左侧选择一条规则，查看它包含的域名或 IP 段。</div>
+        <div v-if="!selected" class="rl__hint">选择一条规则，查看它包含的域名或 IP 段。</div>
         <template v-else>
           <div class="rl__head">
             <span class="rl__cat">{{ selected.category }}</span>
@@ -121,19 +138,58 @@ watch(category, () => {
           </div>
           <div class="rl__url mono">{{ selected.url }}</div>
           <div v-if="$slots.actions" class="rl__actions"><slot name="actions" :item="selected" /></div>
-          <NSpin v-if="contentLoading" size="small" class="rl__state" />
-          <p v-else-if="contentError" class="rl__error">{{ contentError }}</p>
-          <template v-else-if="content">
+          <!-- 首次加载出错（还没有任何内容）：给出重试 -->
+          <div v-if="firstLoad && paged.error.value" class="rl__error">
+            <p>{{ paged.error.value }}</p>
+            <NButton size="small" @click="paged.reset(lineFilter)">重试</NButton>
+          </div>
+          <NSpin v-else-if="firstLoad" size="small" class="rl__state" />
+          <template v-else>
             <div class="rl__content-bar">
-              <span class="rl__meta">共 <span class="mono">{{ content.total }}</span> 条<template v-if="content.truncated">，仅显示前 {{ content.lines.length }} 条</template></span>
-              <NInput v-model:value="lineFilter" size="small" clearable placeholder="在结果内筛选" class="rl__filter" />
+              <span class="rl__meta">
+                <template v-if="paged.query.value">
+                  匹配 <span class="mono">{{ paged.matched.value }}</span> /
+                </template>
+                共 <span class="mono">{{ paged.total.value }}</span> 条
+              </span>
+              <NInput
+                v-model:value="lineFilter"
+                size="small"
+                clearable
+                placeholder="在全部条目中检索"
+                class="rl__filter"
+              />
             </div>
-            <NEmpty v-if="!filteredLines.length" description="没有匹配的条目" class="rl__empty" />
-            <NVirtualList v-else :items="filteredLines.map((l, i) => ({ key: i, l }))" :item-size="24" class="rl__lines">
-              <template #default="{ item }">
-                <div class="rl__line mono">{{ item.l }}</div>
+            <NSpin :show="paged.loading.value && !paged.lines.value.length" size="small">
+              <p v-if="paged.error.value && !paged.lines.value.length" class="rl__error">{{ paged.error.value }}</p>
+              <NEmpty
+                v-else-if="paged.ready.value && !paged.matched.value"
+                description="没有匹配的条目"
+                class="rl__empty"
+              />
+              <NVirtualList
+                v-else
+                :items="lineItems"
+                :item-size="LINE_HEIGHT"
+                class="rl__lines"
+                @scroll="onLinesScroll"
+              >
+                <template #default="{ item }">
+                  <div class="rl__line mono">{{ item.l }}</div>
+                </template>
+              </NVirtualList>
+            </NSpin>
+            <div v-if="paged.ready.value && paged.matched.value" class="rl__progress">
+              <template v-if="paged.error.value">
+                加载失败：{{ paged.error.value }}
+                <NButton text type="primary" size="tiny" @click="paged.reset(lineFilter)">重试</NButton>
               </template>
-            </NVirtualList>
+              <template v-else-if="paged.loading.value">正在加载更多…</template>
+              <template v-else-if="!paged.done.value">
+                已加载 <span class="mono">{{ paged.lines.value.length }}</span> 条，滚动到底部继续加载
+              </template>
+              <template v-else>已全部加载</template>
+            </div>
           </template>
         </template>
       </div>
@@ -246,6 +302,10 @@ watch(category, () => {
 }
 .rl__filter {
   max-width: 220px;
+}
+.rl__progress {
+  color: var(--rf-faint);
+  font-size: 12px;
 }
 .rl__lines {
   border: 1px solid var(--rf-line);

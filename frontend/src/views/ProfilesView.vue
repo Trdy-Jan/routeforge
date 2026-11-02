@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { h, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import {
-  NButton, NDataTable, NEmpty, NInput, NModal, NSpace, useDialog, useMessage, type DataTableColumns,
+  NButton, NDataTable, NEmpty, NInput, NModal, NSpace, NSpin, useDialog, useMessage, type DataTableColumns,
 } from 'naive-ui'
 import { api } from '../api'
 import type { ProfileSummary } from '../api/types'
 import PageHeader from '../components/PageHeader.vue'
 import SubscriptionLink from '../components/SubscriptionLink.vue'
+import { isMobile } from '../lib/viewport'
 
 const router = useRouter()
 const message = useMessage()
@@ -98,13 +99,34 @@ const columns: DataTableColumns<ProfileSummary> = [
   <PageHeader title="配置方案" description="每个方案生成一条订阅链接，在 Clash Verge Rev 等 Mihomo 内核客户端中添加即可。">
     <NButton type="primary" @click="showCreate = true">新建方案</NButton>
   </PageHeader>
-  <NDataTable :columns="columns" :data="profiles" :loading="loading" :row-key="(p: ProfileSummary) => p.id" :scroll-x="720">
+  <NDataTable v-if="!isMobile" :columns="columns" :data="profiles" :loading="loading" :row-key="(p: ProfileSummary) => p.id" :scroll-x="720">
     <template #empty>
       <NEmpty description="还没有配置方案。新建一个，再套用模板就能快速得到可用的订阅。">
         <template #extra><NButton size="small" type="primary" @click="showCreate = true">新建方案</NButton></template>
       </NEmpty>
     </template>
   </NDataTable>
+
+  <!-- 手机：每个方案一张卡片，订阅链接独占一行 -->
+  <NSpin v-else :show="loading">
+    <div v-if="profiles.length" class="m-list">
+      <article v-for="p in profiles" :key="p.id" class="m-card">
+        <div class="m-card__head">
+          <RouterLink :to="{ name: 'profile-edit', params: { id: p.id } }" class="m-card__title profile-link">
+            {{ p.name }}
+          </RouterLink>
+        </div>
+        <div style="margin-top: 10px"><SubscriptionLink :token="p.token" size="small" /></div>
+        <div class="m-card__actions">
+          <NButton size="small" quaternary @click="router.push({ name: 'profile-edit', params: { id: p.id } })">编辑</NButton>
+          <NButton size="small" quaternary type="error" @click="remove(p)">删除</NButton>
+        </div>
+      </article>
+    </div>
+    <NEmpty v-else-if="!loading" class="m-empty" description="还没有配置方案。新建一个，再套用模板就能快速得到可用的订阅。">
+      <template #extra><NButton size="small" type="primary" @click="showCreate = true">新建方案</NButton></template>
+    </NEmpty>
+  </NSpin>
 
   <NModal v-model:show="showCreate" preset="card" title="新建方案" style="width: 420px">
     <NInput v-model:value="newName" placeholder="方案名称，例如 家里电脑" @keyup.enter="create" />
@@ -118,11 +140,13 @@ const columns: DataTableColumns<ProfileSummary> = [
 </template>
 
 <style scoped>
+.profile-link,
 :deep(.profile-link) {
   color: var(--rf-text);
   font-weight: 600;
   text-decoration: none;
 }
+.profile-link:hover,
 :deep(.profile-link:hover) {
   color: var(--rf-primary);
   text-decoration: underline;

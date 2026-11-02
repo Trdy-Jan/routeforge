@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue'
 import {
-  NAlert, NButton, NDataTable, NEmpty, NForm, NFormItem, NInput, NInputNumber, NModal, NRadioButton, NRadioGroup, NSpace,
+  NAlert, NButton, NCheckbox, NDataTable, NEmpty, NSpin, NForm, NFormItem, NInput, NInputNumber, NModal, NRadioButton, NRadioGroup, NSpace,
   NTag, NTooltip, useDialog, useMessage, type DataTableColumns,
 } from 'naive-ui'
 import { api } from '../api'
@@ -9,6 +9,7 @@ import type { LineError, ParseResult, Source, SourceKind } from '../api/types'
 import { formatBytes, formatEpoch, formatTime } from '../lib/format'
 import { addressText, buildRows, duplicateKeys, renameRow, toImportItems, type ImportRow } from '../lib/nodeImport'
 import PageHeader from '../components/PageHeader.vue'
+import { isMobile } from '../lib/viewport'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -255,6 +256,7 @@ const columns: DataTableColumns<Source> = [
     <NButton type="primary" @click="openCreate">新建节点源</NButton>
   </PageHeader>
   <NDataTable
+    v-if="!isMobile"
     :columns="columns"
     :data="sources"
     :loading="loading"
@@ -268,8 +270,47 @@ const columns: DataTableColumns<Source> = [
     </template>
   </NDataTable>
 
+  <!-- 手机：每个节点源一张卡片 -->
+  <NSpin v-else :show="loading">
+    <div v-if="sources.length" class="m-list">
+      <article v-for="s in sources" :key="s.id" class="m-card">
+        <div class="m-card__head">
+          <span class="m-card__title">{{ s.name }}</span>
+          <NTag size="small" :bordered="false" :type="s.kind === 'subscription' ? 'info' : 'default'">
+            {{ s.kind === 'subscription' ? '机场订阅' : '手动' }}
+          </NTag>
+        </div>
+        <dl class="m-card__meta">
+          <dt>节点</dt>
+          <dd class="mono">{{ s.node_count }}</dd>
+          <dt>状态</dt>
+          <dd>
+            <span v-if="!s.last_error" class="status status--ok">正常</span>
+            <span v-else class="status status--error">拉取失败</span>
+            <div v-if="s.last_error" class="muted" style="font-size: 12px; margin-top: 2px">{{ s.last_error }}</div>
+          </dd>
+          <template v-if="s.kind === 'subscription'">
+            <dt>上次拉取</dt>
+            <dd class="mono muted">{{ formatTime(s.last_fetched_at) }}</dd>
+            <dt>流量</dt>
+            <dd class="muted">{{ trafficText(s) }}</dd>
+          </template>
+        </dl>
+        <div class="m-card__actions">
+          <NButton v-if="s.kind === 'subscription'" size="small" secondary type="primary" @click="refresh(s)">立即刷新</NButton>
+          <NButton v-else size="small" secondary type="primary" @click="openImport(s)">导入节点</NButton>
+          <NButton size="small" quaternary @click="openEdit(s)">编辑</NButton>
+          <NButton size="small" quaternary type="error" @click="remove(s)">删除</NButton>
+        </div>
+      </article>
+    </div>
+    <NEmpty v-else-if="!loading" class="m-empty" description="还没有节点源。添加一个机场订阅，或新建手动节点源后粘贴分享链接。">
+      <template #extra><NButton size="small" type="primary" @click="openCreate">新建节点源</NButton></template>
+    </NEmpty>
+  </NSpin>
+
   <NModal v-model:show="showForm" preset="card" :title="editing ? '编辑节点源' : '新建节点源'" style="width: 520px">
-    <NForm label-placement="left" label-width="96">
+    <NForm :label-placement="isMobile ? 'top' : 'left'" label-width="96">
       <NFormItem v-if="!editing" label="类型">
         <NRadioGroup :value="form.kind" @update:value="(v: unknown) => (form.kind = v as SourceKind)">
           <NRadioButton value="manual">手动</NRadioButton>
@@ -315,6 +356,39 @@ const columns: DataTableColumns<Source> = [
       class="mono"
       placeholder="每行一个分享链接（ss / vmess / vless / trojan / hysteria2 / tuic / mierus），或粘贴 Clash YAML"
     />
+    <!-- 手机：逐行勾选 + 改名，不用横向拖动的表格 -->
+    <div v-else-if="isMobile" class="import-list">
+      <div class="import-list__all">
+        <NCheckbox
+          :checked="selectedCount > 0 && selectedCount === importRows.filter((r) => r.name.trim()).length"
+          :indeterminate="selectedCount > 0 && selectedCount < importRows.filter((r) => r.name.trim()).length"
+          @update:checked="(v: boolean) => setChecked(v ? importRows.filter((r) => r.name.trim()).map((r) => r.key) : [])"
+        >
+          全选
+        </NCheckbox>
+      </div>
+      <div v-for="r in importRows" :key="r.key" class="import-row">
+        <NCheckbox
+          :checked="r.checked"
+          :disabled="r.name.trim() === ''"
+          :aria-label="`选择 ${r.name}`"
+          @update:checked="(v: boolean) => (r.checked = v)"
+        />
+        <div class="import-row__body">
+          <NInput
+            size="small"
+            :value="r.name"
+            :status="r.name.trim() === '' ? 'error' : undefined"
+            @update:value="(v: string) => renameRow(r, v)"
+          />
+          <div class="import-row__meta">
+            <NTag size="small" :bordered="false"><span class="mono">{{ r.node.type }}</span></NTag>
+            <span class="mono muted">{{ addressText(r.node.server, r.node.port, r.node.port_range) }}</span>
+            <NTag v-if="dupKeys.has(r.key)" size="small" type="warning" :bordered="false">已存在同名</NTag>
+          </div>
+        </div>
+      </div>
+    </div>
     <NDataTable
       v-else
       size="small"
@@ -333,7 +407,7 @@ const columns: DataTableColumns<Source> = [
         <NButton @click="importTarget = null">关闭</NButton>
         <NButton type="primary" :loading="parsing" :disabled="!importText.trim()" @click="doParse">解析</NButton>
       </NSpace>
-      <div v-else style="display: flex; justify-content: space-between; align-items: center">
+      <div v-else class="import-foot">
         <span class="muted">已选 {{ selectedCount }} / {{ importRows.length }}</span>
         <NSpace>
           <NButton @click="importStep = 1">返回修改</NButton>
@@ -345,3 +419,44 @@ const columns: DataTableColumns<Source> = [
     </template>
   </NModal>
 </template>
+
+<style scoped>
+.import-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.import-list__all {
+  border-bottom: 1px solid var(--rf-line);
+  padding: 4px 0 10px;
+}
+.import-row {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--rf-line-soft);
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+}
+.import-row > .n-checkbox {
+  margin-top: 6px;
+}
+.import-row__body {
+  flex: 1;
+  min-width: 0;
+}
+.import-row__meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 6px;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.import-foot {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+</style>

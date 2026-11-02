@@ -44,16 +44,16 @@ async function submit() {
   <div class="login">
     <svg class="login__map" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <g fill="none" stroke-width="4" stroke-linecap="round">
-        <path d="M-20 620 H300 C360 620 380 600 420 560 L560 420 C600 380 620 360 680 360 H1220" stroke="#25496d" />
+        <path d="M-20 620 H300 C360 620 380 600 420 560 L560 420 C600 380 620 360 680 360 H1220" class="map-line" />
         <path d="M560 420 C600 460 620 480 680 480 H900 C960 480 980 500 1020 540 L1220 740" class="map-accent" />
-        <path d="M-20 180 H220 C280 180 300 200 340 240 L420 320 C460 360 480 360 540 360 H680" stroke="#25496d" />
+        <path d="M-20 180 H220 C280 180 300 200 340 240 L420 320 C460 360 480 360 540 360 H680" class="map-line" />
       </g>
       <g class="map-stops" stroke-width="4">
-        <circle cx="300" cy="620" r="9" stroke="#25496d" />
+        <circle cx="300" cy="620" r="9" class="map-line" />
         <circle cx="560" cy="420" r="11" class="map-signal" />
         <circle cx="900" cy="480" r="9" class="map-accent" />
-        <circle cx="220" cy="180" r="9" stroke="#25496d" />
-        <circle cx="680" cy="360" r="9" stroke="#25496d" />
+        <circle cx="220" cy="180" r="9" class="map-line" />
+        <circle cx="680" cy="360" r="9" class="map-line" />
       </g>
     </svg>
     <main class="panel">
@@ -78,9 +78,10 @@ async function submit() {
 </template>
 
 <style scoped>
+/* 登录页：与应用同一套中性底色，线路图用边框色淡淡铺在背景上 */
 .login {
   align-items: center;
-  background: var(--rf-ink);
+  background: var(--rf-canvas);
   display: flex;
   justify-content: center;
   min-height: 100vh;
@@ -94,19 +95,23 @@ async function submit() {
   position: absolute;
   width: 100%;
 }
+.map-line {
+  stroke: var(--rf-line);
+}
 .map-accent {
-  stroke: color-mix(in srgb, var(--rf-primary) 55%, var(--rf-ink));
+  stroke: color-mix(in srgb, var(--rf-primary) 45%, var(--rf-canvas));
 }
 .map-signal {
   stroke: var(--rf-signal);
 }
 .map-stops {
-  fill: var(--rf-ink);
+  fill: var(--rf-canvas);
 }
 .panel {
   background: var(--rf-surface);
+  border: 1px solid var(--rf-line);
   border-radius: 14px;
-  box-shadow: 0 24px 60px -20px rgb(4 18 33 / 0.6);
+  box-shadow: var(--rf-shadow-pop);
   max-width: 380px;
   padding: 32px 32px 28px;
   position: relative;

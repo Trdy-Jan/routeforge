@@ -6,6 +6,7 @@ import { api } from './api'
 import AppearancePicker from './components/AppearancePicker.vue'
 import BrandMark from './components/BrandMark.vue'
 import { isDark, primaryColor } from './lib/appearance'
+import { isMobile } from './lib/viewport'
 import { markLoggedOut } from './router'
 import { buildThemeOverrides } from './theme'
 
@@ -15,7 +16,24 @@ const themeOverrides = computed(() => buildThemeOverrides(isDark.value, primaryC
 const route = useRoute()
 const router = useRouter()
 
-// 导航按使用顺序排成一条线路：节点源 → 节点 → 配置方案
+// 底部标签栏的图标（24×24 线框，按路由名对应）
+const ICONS: Record<string, string[]> = {
+  sources: ['M12 3 3 7.5l9 4.5 9-4.5L12 3Z', 'm3 12 9 4.5 9-4.5', 'm3 16.5 9 4.5 9-4.5'],
+  nodes: [
+    'M12 7.5v4', 'M12 11.5 6.5 16', 'M12 11.5l5.5 4.5',
+    'M14.5 5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z',
+    'M8 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z',
+    'M21 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z',
+  ],
+  profiles: ['M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z', 'M14 3v5h5', 'M9 13h6', 'M9 17h4'],
+  'rule-library': ['M4 19V5a2 2 0 0 1 2-2h14v14H6a2 2 0 0 0-2 2Zm0 0a2 2 0 0 0 2 2h14v-4', 'M9 7h7', 'M9 11h5'],
+  settings: [
+    'M4 7h9', 'M18 7h2', 'M4 17h3', 'M12 17h8',
+    'M17.5 7a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z', 'M11.5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z',
+  ],
+}
+
+// 导航按使用顺序排列：节点源 → 节点 → 配置方案
 const stations = computed(() =>
   router
     .getRoutes()
@@ -41,33 +59,56 @@ async function logout() {
     <NMessageProvider>
       <NDialogProvider>
         <div v-if="showShell" class="shell">
-          <aside class="sider">
-            <RouterLink to="/" class="brand">
-              <BrandMark :size="30" />
-              <span class="brand__name">RouteForge</span>
-            </RouterLink>
-            <nav class="line" aria-label="主导航">
-              <RouterLink
-                v-for="s in stations"
-                :key="s.name"
-                :to="{ name: s.name }"
-                class="station"
-                :class="{ 'station--active': activeKey === s.name }"
-                :aria-current="activeKey === s.name ? 'page' : undefined"
-                :title="s.title"
-              >
-                <span class="station__dot" />
-                <span class="station__name">{{ s.title }}</span>
+          <header class="topbar">
+            <div class="topbar__inner">
+              <RouterLink to="/" class="brand">
+                <BrandMark :size="26" />
+                <span class="brand__name">RouteForge</span>
               </RouterLink>
-            </nav>
-            <div class="sider__foot">
-              <AppearancePicker />
-              <button type="button" class="logout" @click="logout">退出登录</button>
+              <nav class="tabs" aria-label="主导航">
+                <RouterLink
+                  v-for="s in stations"
+                  :key="s.name"
+                  :to="{ name: s.name }"
+                  class="tab"
+                  :class="{ 'tab--active': activeKey === s.name }"
+                  :aria-current="activeKey === s.name ? 'page' : undefined"
+                >
+                  {{ s.title }}
+                </RouterLink>
+              </nav>
+              <div class="tools">
+                <!-- 手机：退出登录收进菜单，不占顶栏位置 -->
+                <AppearancePicker v-if="isMobile" variant="menu">
+                  <button type="button" class="menu-item menu-item--danger" @click="logout">退出登录</button>
+                </AppearancePicker>
+                <template v-else>
+                  <AppearancePicker />
+                  <span class="tools__sep" aria-hidden="true" />
+                  <button type="button" class="logout" @click="logout">退出登录</button>
+                </template>
+              </div>
             </div>
-          </aside>
+          </header>
           <main class="content">
             <div class="content__inner"><RouterView /></div>
           </main>
+          <!-- 手机：主导航移到屏幕底部，拇指可达 -->
+          <nav class="bottombar" aria-label="主导航">
+            <RouterLink
+              v-for="s in stations"
+              :key="s.name"
+              :to="{ name: s.name }"
+              class="bottomtab"
+              :class="{ 'bottomtab--active': activeKey === s.name }"
+              :aria-current="activeKey === s.name ? 'page' : undefined"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path v-for="(d, i) in ICONS[s.name] ?? []" :key="i" :d="d" />
+              </svg>
+              <span>{{ s.title }}</span>
+            </RouterLink>
+          </nav>
         </div>
         <RouterView v-else />
       </NDialogProvider>
@@ -78,117 +119,155 @@ async function logout() {
 <style scoped>
 .shell {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
 }
 
-.sider {
-  background: var(--rf-ink);
-  color: var(--rf-ink-text);
-  display: flex;
+/* 顶栏：与页面同色的半透明栏，滚动时内容在下方模糊透出 */
+.topbar {
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
+  background: color-mix(in srgb, var(--rf-surface) 82%, transparent);
+  border-bottom: 1px solid var(--rf-line);
   flex: none;
-  flex-direction: column;
-  height: 100vh;
-  padding: 22px 16px 18px;
   position: sticky;
   top: 0;
-  width: 212px;
+  z-index: 10;
+}
+.topbar__inner {
+  align-items: center;
+  display: flex;
+  height: 56px;
+  margin: 0 auto;
+  max-width: 1312px;
+  padding: 0 36px;
 }
 
 .brand {
   align-items: center;
-  color: #fff;
+  border-radius: 6px;
+  color: var(--rf-text);
   display: flex;
-  gap: 10px;
-  padding: 0 6px;
+  flex: none;
+  gap: 9px;
+  margin-right: 28px;
   text-decoration: none;
 }
 .brand__name {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 650;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
 }
 
-/* 线路：竖线贯穿所有站点 */
-.line {
-  margin-top: 40px;
-  position: relative;
-}
-.line::before {
-  background: var(--rf-ink-line);
-  border-radius: 2px;
-  bottom: 22px;
-  content: "";
-  left: 21px;
-  position: absolute;
-  top: 22px;
-  width: 3px;
-}
-
-.station {
+.tabs {
   align-items: center;
-  border-radius: 8px;
-  color: var(--rf-ink-text);
+  align-self: stretch;
   display: flex;
-  gap: 14px;
-  height: 44px;
-  margin-bottom: 6px;
-  padding: 0 14px;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  align-items: center;
+  align-self: stretch;
+  color: var(--rf-muted);
+  display: flex;
+  flex: none;
+  font-size: 14px;
+  padding: 0 12px;
   position: relative;
   text-decoration: none;
-  transition: background-color 0.15s, color 0.15s;
+  z-index: 0;
 }
-.station:hover {
-  background: var(--rf-ink-2);
-  color: #fff;
+/* 悬停底色画在伪元素上，下划线才能贴住顶栏底边 */
+.tab::before {
+  border-radius: 6px;
+  content: "";
+  inset: 12px 0;
+  position: absolute;
+  transition: background-color 0.12s;
+  z-index: -1;
 }
-.station__dot {
-  background: var(--rf-ink);
-  border: 3px solid var(--rf-ink-line);
-  border-radius: 50%;
-  flex: none;
-  height: 17px;
-  position: relative;
-  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
-  width: 17px;
+.tab:hover {
+  color: var(--rf-text);
 }
-.station:hover .station__dot {
-  border-color: #8fa7bd;
+.tab:hover::before {
+  background: var(--rf-line-soft);
 }
-.station__name {
-  font-size: 15px;
-}
-.station--active {
-  background: var(--rf-ink-2);
-  color: #fff;
+.tab--active {
+  color: var(--rf-text);
   font-weight: 600;
 }
-.station--active .station__dot {
-  background: var(--rf-signal);
-  border-color: #fff;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--rf-signal) 22%, transparent);
+.tab--active::after {
+  background: var(--rf-primary);
+  border-radius: 2px 2px 0 0;
+  bottom: -1px;
+  content: "";
+  height: 2px;
+  left: 12px;
+  position: absolute;
+  right: 12px;
+}
+.tab:focus-visible {
+  outline: none;
+}
+.tab:focus-visible::before {
+  outline: 2px solid var(--rf-primary);
+  outline-offset: -2px;
 }
 
-.sider__foot {
+.tools {
+  align-items: center;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: auto;
+  flex: none;
+  gap: 6px;
+  margin-left: auto;
+  padding-left: 16px;
+}
+.tools__sep {
+  background: var(--rf-line);
+  height: 18px;
+  width: 1px;
 }
 
 .logout {
   background: none;
   border: 0;
   border-radius: 6px;
-  color: #8fa7bd;
+  color: var(--rf-muted);
   cursor: pointer;
   font: inherit;
   font-size: 13px;
-  padding: 8px 10px;
-  text-align: left;
+  height: 32px;
+  padding: 0 10px;
+  white-space: nowrap;
 }
 .logout:hover {
-  background: var(--rf-ink-2);
-  color: #fff;
+  background: var(--rf-line-soft);
+  color: var(--rf-text);
+}
+
+.menu-item {
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 6px;
+  text-align: left;
+  width: 100%;
+}
+.menu-item--danger {
+  color: var(--rf-error);
+}
+.menu-item:hover {
+  background: var(--rf-line-soft);
 }
 
 .content {
@@ -201,35 +280,92 @@ async function logout() {
   max-width: 1240px;
 }
 
-/* 窄屏：侧栏只保留站点圆点 */
 @media (max-width: 860px) {
-  .sider {
-    padding: 18px 8px;
-    width: 64px;
+  .topbar__inner {
+    padding: 0 12px 0 16px;
   }
   .brand {
-    justify-content: center;
-    padding: 0;
+    margin-right: 8px;
   }
-  .brand__name,
-  .station__name {
-    display: none;
+  .tab {
+    padding: 0 9px;
   }
-  .line::before {
-    left: 22px;
+  .tab--active::after {
+    left: 9px;
+    right: 9px;
   }
-  .station {
-    justify-content: center;
-    padding: 0;
-  }
-  .logout {
-    font-size: 11px;
-    padding: 6px 0;
-    text-align: center;
-    white-space: nowrap;
+  .tools {
+    padding-left: 8px;
   }
   .content {
-    padding: 20px 16px 40px;
+    padding: 24px 20px 40px;
+  }
+}
+
+.bottombar {
+  display: none;
+}
+
+/* 手机：顶栏只留品牌与工具，导航放到底部标签栏 */
+@media (max-width: 640px) {
+  .topbar__inner {
+    height: 52px;
+  }
+  .tabs {
+    display: none;
+  }
+  .content {
+    padding: 16px 12px calc(76px + env(safe-area-inset-bottom));
+  }
+
+  .bottombar {
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    backdrop-filter: saturate(180%) blur(12px);
+    background: color-mix(in srgb, var(--rf-surface) 88%, transparent);
+    border-top: 1px solid var(--rf-line);
+    bottom: 0;
+    display: flex;
+    left: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    position: fixed;
+    right: 0;
+    z-index: 10;
+  }
+  .bottomtab {
+    align-items: center;
+    color: var(--rf-faint);
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    font-size: 11px;
+    gap: 3px;
+    height: 56px;
+    justify-content: center;
+    min-width: 0;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bottomtab svg {
+    fill: none;
+    height: 22px;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.7;
+    width: 22px;
+  }
+  .bottomtab span {
+    white-space: nowrap;
+  }
+  .bottomtab--active {
+    color: var(--rf-primary);
+    font-weight: 600;
+  }
+  .bottomtab--active svg {
+    stroke-width: 2;
+  }
+  .bottomtab:focus-visible {
+    outline-offset: -4px;
   }
 }
 </style>

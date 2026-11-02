@@ -68,10 +68,17 @@ export function sameMember(a: Member, b: Member): boolean {
   }
 }
 
+/** 节点显示名附带所属节点源，避免不同节点源里的同名节点无法区分。 */
+export function nodeLabel(n: NodeItem, sources: Map<number, Source>): string {
+  return `${n.name}（${sources.get(n.source_id)?.name ?? '?'}）`
+}
+
 export function memberLabel(m: Member, nodes: Map<number, NodeItem>, sources: Map<number, Source>): string {
   switch (m.kind) {
-    case 'node':
-      return nodes.get(m.node_id)?.name ?? `#${m.node_id}（已删除）`
+    case 'node': {
+      const n = nodes.get(m.node_id)
+      return n ? nodeLabel(n, sources) : `#${m.node_id}（已删除）`
+    }
     case 'group':
       return `分组：${m.name}`
     case 'builtin':

@@ -1,11 +1,20 @@
 from dataclasses import asdict
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from routeforge.api.deps import require_admin
-from routeforge.rule_library import LibraryIndex, LibraryUnavailable, RuleLibrary
+from routeforge.rule_library import (
+    MAX_PAGE_SIZE,
+    MAX_QUERY_LENGTH,
+    PAGE_SIZE,
+    LibraryIndex,
+    LibraryUnavailable,
+    RuleLibrary,
+)
 
 router = APIRouter(prefix="/api/rule-library", tags=["rule-library"], dependencies=[Depends(require_admin)])
 
@@ -25,8 +34,9 @@ class LibraryIndexOut(BaseModel):
 
 class RuleContentOut(BaseModel):
     total: int
+    matched: int
+    offset: int
     lines: list[str]
-    truncated: bool
 
 
 def _library(request: Request) -> RuleLibrary:
@@ -53,9 +63,17 @@ def refresh_index(lib: RuleLibrary = Depends(_library)) -> LibraryIndexOut:
 
 
 @router.get("/{category}/{name}/content")
-def get_content(category: str, name: str, lib: RuleLibrary = Depends(_library)) -> RuleContentOut:
+def get_content(
+    category: str,
+    name: str,
+    q: Annotated[str, Query(max_length=MAX_QUERY_LENGTH)] = "",
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = PAGE_SIZE,
+    lib: RuleLibrary = Depends(_library),
+) -> RuleContentOut:
+    """分页返回规则内容；q 为服务端检索（不区分大小写的子串匹配）。"""
     try:
-        content = lib.content(category, name)
+        content = lib.content(category, name, q=q, offset=offset, limit=limit)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="规则不存在") from exc
     except LibraryUnavailable as exc:

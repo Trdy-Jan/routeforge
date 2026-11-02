@@ -10,6 +10,7 @@ import IssueList from '../components/IssueList.vue'
 import PreviewPanel from '../components/PreviewPanel.vue'
 import ProviderEditor from '../components/ProviderEditor.vue'
 import RuleEditor from '../components/RuleEditor.vue'
+import { isMobile } from '../lib/viewport'
 
 const props = defineProps<{ id: number }>()
 const router = useRouter()
@@ -160,7 +161,14 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           <NDropdown :options="templateOptions" :disabled="saving" trigger="click" @select="applyTemplate">
             <NButton :disabled="saving">套用模板</NButton>
           </NDropdown>
-          <NButton type="primary" :disabled="saving || !dirty || !profile.name.trim()" :loading="saving" @click="save">
+          <!-- 手机上保存按钮在底部保存条里 -->
+          <NButton
+            v-if="!isMobile"
+            type="primary"
+            :disabled="saving || !dirty || !profile.name.trim()"
+            :loading="saving"
+            @click="save"
+          >
             保存
           </NButton>
         </div>
@@ -176,7 +184,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
       </NAlert>
 
       <div class="surface editor">
-        <NTabs v-model:value="tab" type="line" animated size="large" :tabs-padding="20">
+        <NTabs v-model:value="tab" type="line" animated :size="isMobile ? 'medium' : 'large'" :tabs-padding="isMobile ? 12 : 20">
           <NTabPane name="groups" :tab="tabLabel('分组', 'groups')">
             <GroupEditor v-model="profile" :nodes="nodes" :sources="sources" />
           </NTabPane>
@@ -187,7 +195,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
             <ProviderEditor v-model="profile" />
           </NTabPane>
           <NTabPane name="chains" :tab="tabLabel('链式代理', 'chains')">
-            <ChainEditor v-model="profile" :nodes="nodes" />
+            <ChainEditor v-model="profile" :nodes="nodes" :sources="sources" />
           </NTabPane>
           <NTabPane name="preview" tab="预览与订阅">
             <PreviewPanel
@@ -203,6 +211,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
           </NTabPane>
         </NTabs>
       </div>
+
+      <!-- 手机：编辑栏不吸顶，有未保存修改时在底部标签栏上方给出保存条 -->
+      <div v-if="isMobile && dirty" class="savebar" role="region" aria-label="保存修改">
+        <span class="status status--unsaved">有未保存的修改</span>
+        <NButton type="primary" :disabled="saving || !profile.name.trim()" :loading="saving" @click="save">保存</NButton>
+      </div>
     </div>
   </NSpin>
 </template>
@@ -217,8 +231,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
   margin: -32px -4px 0;
   padding: 24px 4px 16px;
   position: sticky;
-  top: 0;
-  z-index: 10;
+  top: 57px; /* 顶栏高度 + 底边 */
+  z-index: 9;
 }
 .editbar__back {
   color: var(--rf-muted);
@@ -260,8 +274,65 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
 }
 @media (max-width: 860px) {
   .editbar {
-    margin-top: -20px;
+    margin-top: -24px;
     padding-top: 16px;
+  }
+}
+.savebar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  /* 编辑栏：返回 + 名称一行，状态 + 按钮一行；不吸顶以免占用屏幕 */
+  .editbar {
+    gap: 8px;
+    margin: 0 0 12px;
+    padding: 0;
+    position: static;
+  }
+  .editbar__back {
+    padding: 0 6px;
+  }
+  .editbar__name {
+    flex: 1;
+    font-size: 16px;
+    max-width: none;
+    min-width: 0;
+  }
+  .editbar__actions {
+    width: 100%;
+  }
+  .editbar__actions > * {
+    flex: 1;
+  }
+  .editbar .status--unsaved {
+    display: none;
+  }
+
+  /* 编辑区：去掉外层面板，内容贴近屏幕边缘 */
+  .editor {
+    background: none;
+    border: 0;
+    padding: 0 0 72px;
+  }
+  .editor :deep(.n-tab-pane) {
+    padding: 14px 0 0;
+  }
+
+  .savebar {
+    align-items: center;
+    background: var(--rf-raised);
+    border: 1px solid var(--rf-line);
+    border-radius: 12px;
+    bottom: calc(68px + env(safe-area-inset-bottom));
+    box-shadow: var(--rf-shadow-pop);
+    display: flex;
+    justify-content: space-between;
+    left: 12px;
+    padding: 8px 8px 8px 14px;
+    position: fixed;
+    right: 12px;
+    z-index: 9;
   }
 }
 </style>

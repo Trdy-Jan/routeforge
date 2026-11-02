@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch } from 'vue'
 import {
-  NButton, NDataTable, NEmpty, NInput, NInputGroup, NModal, NSelect, NSpace, NSwitch, NTag, useDialog, useMessage,
+  NButton, NCheckbox, NDataTable, NEmpty, NInput, NInputGroup, NModal, NPagination, NSelect, NSpace, NSpin, NSwitch, NTag,
+  useDialog, useMessage,
   type DataTableColumns, type DataTableRowKey,
 } from 'naive-ui'
 import { api } from '../api'
 import type { NodeItem, Source } from '../api/types'
 import PageHeader from '../components/PageHeader.vue'
 import { addressText } from '../lib/nodeImport'
+import { isMobile } from '../lib/viewport'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -40,6 +42,22 @@ async function load() {
 }
 onMounted(load)
 watch(sourceFilter, load)
+
+// —— 手机卡片列表：自行分页与勾选 ——
+const MOBILE_PAGE_SIZE = 20
+const mobilePage = ref(1)
+const mobileNodes = computed(() =>
+  nodes.value.slice((mobilePage.value - 1) * MOBILE_PAGE_SIZE, mobilePage.value * MOBILE_PAGE_SIZE),
+)
+watch(nodes, () => {
+  const last = Math.max(1, Math.ceil(nodes.value.length / MOBILE_PAGE_SIZE))
+  if (mobilePage.value > last) mobilePage.value = last
+})
+watch(mobilePage, () => window.scrollTo({ top: 0 }))
+const checkedSet = computed(() => new Set(checked.value))
+function setNodeChecked(n: NodeItem, v: boolean) {
+  checked.value = v ? [...checked.value, n.id] : checked.value.filter((k) => k !== n.id)
+}
 
 async function toggle(n: NodeItem, enabled: boolean) {
   try {
@@ -180,9 +198,9 @@ const columns: DataTableColumns<NodeItem> = [
       @update:value="(v: unknown) => (sourceFilter = (v as number | null) ?? null)"
       clearable
       placeholder="全部节点源"
-      style="width: 180px"
+      class="toolbar__source"
     />
-    <NInputGroup style="width: 280px">
+    <NInputGroup class="toolbar__search">
       <NInput v-model:value="keyword" placeholder="按名称搜索" clearable @keyup.enter="load" />
       <NButton @click="load">搜索</NButton>
     </NInputGroup>
@@ -194,6 +212,7 @@ const columns: DataTableColumns<NodeItem> = [
     </div>
   </div>
   <NDataTable
+    v-if="!isMobile"
     v-model:checked-row-keys="checked"
     :columns="columns"
     :data="nodes"
@@ -206,6 +225,54 @@ const columns: DataTableColumns<NodeItem> = [
       <NEmpty :description="keyword || sourceFilter !== null ? '没有符合条件的节点' : '还没有节点。先到「节点源」导入分享链接或添加机场订阅。'" />
     </template>
   </NDataTable>
+
+  <!-- 手机：每个节点一张卡片，勾选后用顶部的批量操作 -->
+  <NSpin v-else :show="loading">
+    <!-- 选中时留出底部批量操作条的高度 -->
+    <div v-if="nodes.length" class="m-list" :style="checked.length ? 'padding-bottom: 64px' : undefined">
+      <article v-for="n in mobileNodes" :key="n.id" class="m-card" :class="{ 'm-card--off': !n.enabled }">
+        <div class="m-card__head">
+          <NCheckbox
+            :checked="checkedSet.has(n.id)"
+            :aria-label="`选择 ${n.name}`"
+            @update:checked="(v: boolean) => setNodeChecked(n, v)"
+          />
+          <span class="m-card__title">{{ n.name }}</span>
+          <NSwitch
+            size="small"
+            :value="n.enabled"
+            :aria-label="n.enabled ? '停用' : '启用'"
+            @update:value="(v: boolean) => toggle(n, v)"
+          />
+        </div>
+        <div class="node-meta">
+          <NTag size="small" :bordered="false"><span class="mono">{{ n.type }}</span></NTag>
+          <span class="mono muted">{{ addressText(n.server, n.port, n.port_range) }}</span>
+        </div>
+        <div class="node-foot">
+          <span class="muted">{{ sourceMap.get(n.source_id)?.name ?? '—' }}</span>
+          <NSpace v-if="isManual(n)" size="small" :wrap="false">
+            <NButton size="tiny" quaternary @click="openEdit(n)">编辑</NButton>
+            <NButton size="tiny" quaternary type="error" @click="remove(n)">删除</NButton>
+          </NSpace>
+          <span v-else class="faint">随订阅更新</span>
+        </div>
+      </article>
+      <NPagination
+        v-if="nodes.length > MOBILE_PAGE_SIZE"
+        v-model:page="mobilePage"
+        :page-size="MOBILE_PAGE_SIZE"
+        :item-count="nodes.length"
+        simple
+        class="m-pager"
+      />
+    </div>
+    <NEmpty
+      v-else-if="!loading"
+      class="m-empty"
+      :description="keyword || sourceFilter !== null ? '没有符合条件的节点' : '还没有节点。先到「节点源」导入分享链接或添加机场订阅。'"
+    />
+  </NSpin>
 
   <NModal
     :show="editing !== null"
@@ -241,11 +308,68 @@ const columns: DataTableColumns<NodeItem> = [
   gap: 10px;
   margin-bottom: 14px;
 }
+.toolbar__source {
+  width: 180px;
+}
+.toolbar__search {
+  width: 280px;
+}
 .toolbar__bulk {
   align-items: center;
   display: flex;
   gap: 8px;
   margin-left: auto;
+}
+.node-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 8px;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  padding-left: 26px;
+}
+.node-foot {
+  align-items: center;
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  justify-content: space-between;
+  margin-top: 8px;
+  min-height: 24px;
+  padding-left: 26px;
+}
+.faint {
+  color: var(--rf-faint);
+}
+.m-pager {
+  justify-content: center;
+  margin-top: 6px;
+}
+
+@media (max-width: 640px) {
+  .toolbar__source,
+  .toolbar__search {
+    width: 100%;
+  }
+  /* 选中后批量操作条吸附在底部标签栏上方 */
+  .toolbar__bulk {
+    background: var(--rf-raised);
+    border: 1px solid var(--rf-line);
+    border-radius: 12px;
+    bottom: calc(68px + env(safe-area-inset-bottom));
+    box-shadow: var(--rf-shadow-pop);
+    left: 12px;
+    margin: 0;
+    padding: 8px 10px;
+    position: fixed;
+    right: 12px;
+    z-index: 9;
+  }
+  .toolbar__bulk > .muted {
+    margin-right: auto;
+  }
 }
 .config-editor :deep(textarea) {
   font-family: var(--rf-mono);
