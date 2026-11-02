@@ -13,6 +13,7 @@ from routeforge.api import auth as auth_api
 from routeforge.api import nodes as nodes_api
 from routeforge.api import openclash as openclash_api
 from routeforge.api import profiles as profiles_api
+from routeforge.api import rule_library as rule_library_api
 from routeforge.api import sources as sources_api
 from routeforge.api import subscribe as subscribe_api
 from routeforge.api import templates as templates_api
@@ -21,6 +22,7 @@ from routeforge.cache import RenderCache
 from routeforge.config import Settings
 from routeforge.db.session import init_db, make_engine
 from routeforge.openclash import OpenClashPusher
+from routeforge.rule_library import RuleLibrary
 from routeforge.scheduler import refresh_loop
 from routeforge.web import mount_frontend
 
@@ -77,6 +79,7 @@ def create_app(settings: Settings, *, http_client: httpx.Client | None = None,
     app.state.cache = cache
     app.state.http = client
     app.state.openclash = pusher
+    app.state.rule_library = RuleLibrary(client)
     app.state.limiter = LoginLimiter()
 
     @app.middleware("http")
@@ -102,6 +105,7 @@ def create_app(settings: Settings, *, http_client: httpx.Client | None = None,
     app.include_router(nodes_api.router)
     app.include_router(profiles_api.router)
     app.include_router(templates_api.router)
+    app.include_router(rule_library_api.router)
     app.include_router(openclash_api.router)
     app.include_router(subscribe_api.router)
     if settings.static_dir is not None:
