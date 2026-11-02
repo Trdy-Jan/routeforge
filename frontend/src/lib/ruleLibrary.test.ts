@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LibraryItem, Profile, Rule } from '../api/types'
+import { newGroup } from './profile'
 import { addLibraryRule, canUseGeoRule, searchLibrary } from './ruleLibrary'
 
 const BASE = 'https://github.com/MetaCubeX/meta-rules-dat/raw/meta'
@@ -16,7 +17,7 @@ const MATCH: Rule = { type: 'MATCH', value: '', values: [], target: '节点选�
 function profile(over: Partial<Profile> = {}): Profile {
   return {
     name: 'p',
-    groups: [],
+    groups: ['AI', 'TG', 'X', 'Y', 'Z', '节点选择'].map(newGroup),
     rules: [{ type: 'DOMAIN-SUFFIX', value: '', values: ['a.com'], target: 'DIRECT', no_resolve: false }, { ...MATCH }],
     rule_providers: [],
     chains: [],
@@ -111,6 +112,13 @@ describe('addLibraryRule', () => {
     expect(r2.status).toBe('exists')
     expect(r2.index).toBe(1)
     expect(r2.target).toBe('Z')
+  })
+
+  it('rejects a target that is not a group or builtin of the profile', () => {
+    const p = profile({ groups: [{ name: 'A', type: 'select', members: [], url: '', interval: 300, tolerance: 50 }] })
+    expect(() => addLibraryRule(p, openai, 'rule-set', 'B-group')).toThrow('目标分组「B-group」不存在')
+    expect(addLibraryRule(p, openai, 'rule-set', 'A').status).toBe('added')
+    expect(addLibraryRule(p, openai, 'rule-set', 'DIRECT').status).toBe('added')
   })
 
   it('appends when there is no MATCH', () => {

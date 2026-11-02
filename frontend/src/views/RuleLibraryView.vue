@@ -51,7 +51,9 @@ async function pickProfile(id: number) {
   profileId.value = id
   detail.value = null
   try {
-    detail.value = await api.getProfile(id)
+    const fetched = await api.getProfile(id)
+    if (profileId.value !== id) return // 用户已切换到其他方案，丢弃过期结果
+    detail.value = fetched
     const names = targetOptions(detail.value.profile)
     if (!target.value || !names.includes(target.value)) target.value = detail.value.profile.groups[0]?.name ?? 'DIRECT'
   } catch (e) {

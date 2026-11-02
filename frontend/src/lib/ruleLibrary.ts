@@ -1,5 +1,5 @@
 import type { LibraryCategory, LibraryItem, Profile, Rule, RuleProvider, RuleType } from '../api/types'
-import { insertBeforeMatch } from './profile'
+import { insertBeforeMatch, targetOptions } from './profile'
 
 export const LIBRARY_CATEGORIES: { value: LibraryCategory; label: string }[] = [
   { value: 'geosite', label: 'geosite' },
@@ -63,6 +63,7 @@ function uniqueName(base: string, taken: Set<string>): string {
 /** 把规则库条目加入方案；同一条规则已存在时不修改方案并返回已有位置。不修改入参。 */
 export function addLibraryRule(profile: Profile, item: LibraryItem, mode: AddMode, target: string): AddResult {
   if (mode === 'geo' && !canUseGeoRule(item)) throw new Error('精简规则只能以规则集方式加入')
+  if (!targetOptions(profile).includes(target)) throw new Error(`目标分组「${target}」不存在`)
   const existing = findExisting(profile, item)
   if (existing !== -1) return { profile, status: 'exists', index: existing, target: profile.rules[existing].target }
 
