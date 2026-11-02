@@ -57,3 +57,13 @@ def test_error_line_does_not_stringify_nested_structures():
     text = "proxies:\n  - [1, 2, 3]\n  - {name: [a, b], type: ss}\n  - {name: 42, type: nope, server: s, port: 1}\n"
     outcome = parse_subscription(text)
     assert [e.line for e in outcome.errors] == ["list", "?", "42"]
+
+
+def test_subscription_still_rejects_bare_list():
+    out = parse_subscription("- {name: A, type: ss, server: a, port: 1, cipher: aes-128-gcm, password: x}")
+    assert out.nodes == [] and out.errors[0].message == "无法识别的订阅格式"
+
+
+def test_subscription_parses_mieru_in_proxies():
+    text = "proxies:\n  - {name: M, type: mieru, server: 203.0.113.10, port: 1, transport: TCP, username: u, password: p}"
+    assert [n.type for n in parse_subscription(text).nodes] == ["mieru"]

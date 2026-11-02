@@ -32,8 +32,13 @@ def _try_clash_yaml(text: str) -> ParseOutcome | None:
         return None
     if not isinstance(data, dict) or not isinstance(data.get("proxies"), list):
         return None
+    return clash_items(data["proxies"])
+
+
+def clash_items(items: list) -> ParseOutcome:
+    """逐项把 Clash proxy 映射解析为节点；坏条目记入 errors。"""
     outcome = ParseOutcome()
-    for item in data["proxies"]:
+    for item in items:
         if not isinstance(item, dict):
             outcome.errors.append(LineError(line=_item_label(item), message="proxies 中的条目不是映射"))
             continue
