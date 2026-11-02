@@ -35,6 +35,11 @@ export function duplicateKeys(rows: ImportRow[], existing: string[]): Set<number
   return dup
 }
 
+/** 改名时保留勾选状态：名称暂时为空的行只是不计入导入，不会被取消勾选。 */
+export function renameRow(row: ImportRow, name: string): void {
+  row.name = name
+}
+
 /** 勾选且名称非空的行，名称去首尾空格。 */
 export function toImportItems(rows: ImportRow[]): ImportItem[] {
   return rows

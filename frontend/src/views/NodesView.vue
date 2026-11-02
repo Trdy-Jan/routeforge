@@ -7,6 +7,7 @@ import {
 import { api } from '../api'
 import type { NodeItem, Source } from '../api/types'
 import PageHeader from '../components/PageHeader.vue'
+import { addressText } from '../lib/nodeImport'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -146,7 +147,7 @@ const columns: DataTableColumns<NodeItem> = [
     width: 110,
     render: (n) => h(NTag, { size: 'small', bordered: false }, () => h('span', { class: 'mono' }, n.type)),
   },
-  { title: '地址', key: 'server', minWidth: 220, render: (n) => h('span', { class: 'mono muted' }, `${n.server}:${n.port}`) },
+  { title: '地址', key: 'server', minWidth: 220, render: (n) => h('span', { class: 'mono muted' }, addressText(n.server, n.port, n.port_range)) },
   { title: '节点源', key: 'source_id', minWidth: 120, render: (n) => sourceMap.value.get(n.source_id)?.name ?? '—' },
   {
     title: '启用',

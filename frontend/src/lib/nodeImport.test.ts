@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ParsedNode } from '../api/types'
-import { addressText, buildRows, duplicateKeys, toImportItems } from './nodeImport'
+import { addressText, buildRows, duplicateKeys, renameRow, toImportItems } from './nodeImport'
 
 const n = (name: string, over: Partial<ParsedNode> = {}): ParsedNode =>
   ({ name, type: 'mieru', server: '203.0.113.10', port: 1, port_range: null, config: { name }, ...over })
@@ -41,4 +41,15 @@ describe('toImportItems', () => {
 it('addressText prefers port range', () => {
   expect(addressText('h', 2090, '2090-2099')).toBe('h:2090-2099')
   expect(addressText('h', 443, null)).toBe('h:443')
+})
+
+describe('renameRow', () => {
+  it('keeps the row checked when the name is cleared and retyped', () => {
+    const [row] = buildRows({ nodes: [n('A')], errors: [], existing_names: [] })
+    renameRow(row, '')
+    expect(toImportItems([row])).toEqual([])
+    renameRow(row, '香港 Mieru')
+    expect(row.checked).toBe(true)
+    expect(toImportItems([row])).toEqual([{ name: '香港 Mieru', config: { name: 'A' } }])
+  })
 })

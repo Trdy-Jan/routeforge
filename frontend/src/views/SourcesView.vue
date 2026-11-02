@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref } from 'vue'
 import {
   NAlert, NButton, NDataTable, NEmpty, NForm, NFormItem, NInput, NInputNumber, NModal, NRadioButton, NRadioGroup, NSpace,
   NTag, NTooltip, useDialog, useMessage, type DataTableColumns,
 } from 'naive-ui'
 import { api } from '../api'
-import type { LineError, Source, SourceKind } from '../api/types'
+import type { LineError, ParseResult, Source, SourceKind } from '../api/types'
 import { formatBytes, formatEpoch, formatTime } from '../lib/format'
+import { addressText, buildRows, duplicateKeys, renameRow, toImportItems, type ImportRow } from '../lib/nodeImport'
 import PageHeader from '../components/PageHeader.vue'
 
 const message = useMessage()
@@ -81,27 +82,58 @@ async function refresh(s: Source) {
   }
 }
 
-// —— 导入分享链接 ——
+// —— 导入节点（两步：粘贴解析 → 勾选改名导入） ——
 const importTarget = ref<Source | null>(null)
+const importStep = ref<1 | 2>(1)
 const importText = ref('')
-const importErrors = ref<LineError[]>([])
+const parseResult = ref<ParseResult | null>(null)
+const importRows = ref<ImportRow[]>([])
+const parsing = ref(false)
 const importing = ref(false)
+
+const importErrors = computed<LineError[]>(() => parseResult.value?.errors ?? [])
+const dupKeys = computed(() => duplicateKeys(importRows.value, parseResult.value?.existing_names ?? []))
+const checkedKeys = computed(() => importRows.value.filter((r) => r.checked).map((r) => r.key))
+const selectedCount = computed(() => toImportItems(importRows.value).length)
 
 function openImport(s: Source) {
   importTarget.value = s
+  importStep.value = 1
   importText.value = ''
-  importErrors.value = []
+  parseResult.value = null
+  importRows.value = []
+}
+
+async function doParse() {
+  if (!importTarget.value || parsing.value || !importText.value.trim()) return
+  parsing.value = true
+  try {
+    const r = await api.parseNodes(importTarget.value.id, importText.value)
+    parseResult.value = r
+    if (r.nodes.length === 0) return
+    importRows.value = buildRows(r)
+    importStep.value = 2
+  } catch (e) {
+    message.error((e as Error).message)
+  } finally {
+    parsing.value = false
+  }
+}
+
+function setChecked(keys: Array<string | number>) {
+  const set = new Set(keys)
+  for (const r of importRows.value) r.checked = set.has(r.key)
 }
 
 async function doImport() {
   if (!importTarget.value || importing.value) return
+  const items = toImportItems(importRows.value)
+  if (items.length === 0) return
   importing.value = true
   try {
-    const r = await api.importNodes(importTarget.value.id, importText.value)
-    importErrors.value = r.errors
-    if (r.added === 0) message.warning('没有导入任何节点')
-    else message.success(`已导入 ${r.added} 个节点`)
-    if (r.errors.length === 0) importTarget.value = null
+    const r = await api.importNodes(importTarget.value.id, items)
+    message.success(`已导入 ${r.added} 个节点`)
+    importTarget.value = null
     await load()
   } catch (e) {
     message.error((e as Error).message)
@@ -109,6 +141,39 @@ async function doImport() {
     importing.value = false
   }
 }
+
+const importColumns: DataTableColumns<ImportRow> = [
+  { type: 'selection', disabled: (r) => r.name.trim() === '' },
+  {
+    title: '名称',
+    key: 'name',
+    minWidth: 240,
+    render: (r) =>
+      h('div', { style: 'display: flex; gap: 6px; align-items: center' }, [
+        h(NInput, {
+          size: 'small',
+          value: r.name,
+          status: r.name.trim() === '' ? 'error' : undefined,
+          onUpdateValue: (v: string) => renameRow(r, v),
+        }),
+        dupKeys.value.has(r.key)
+          ? h(NTag, { size: 'small', type: 'warning', bordered: false, style: 'flex-shrink: 0' }, () => '已存在同名')
+          : null,
+      ]),
+  },
+  {
+    title: '类型',
+    key: 'type',
+    width: 100,
+    render: (r) => h(NTag, { size: 'small', bordered: false }, () => h('span', { class: 'mono' }, r.node.type)),
+  },
+  {
+    title: '地址',
+    key: 'server',
+    minWidth: 180,
+    render: (r) => h('span', { class: 'mono muted' }, addressText(r.node.server, r.node.port, r.node.port_range)),
+  },
+]
 
 // —— 删除 ——
 function remove(s: Source) {
@@ -177,7 +242,7 @@ const columns: DataTableColumns<Source> = [
       h(NSpace, { size: 'small', justify: 'end', wrap: false }, () => [
         s.kind === 'subscription'
           ? h(NButton, { size: 'small', secondary: true, type: 'primary', onClick: () => refresh(s) }, () => '立即刷新')
-          : h(NButton, { size: 'small', secondary: true, type: 'primary', onClick: () => openImport(s) }, () => '导入链接'),
+          : h(NButton, { size: 'small', secondary: true, type: 'primary', onClick: () => openImport(s) }, () => '导入节点'),
         h(NButton, { size: 'small', quaternary: true, onClick: () => openEdit(s) }, () => '编辑'),
         h(NButton, { size: 'small', quaternary: true, type: 'error', onClick: () => remove(s) }, () => '删除'),
       ]),
@@ -238,25 +303,45 @@ const columns: DataTableColumns<Source> = [
   <NModal
     :show="importTarget !== null"
     preset="card"
-    title="导入分享链接"
-    style="width: 640px"
+    title="导入节点"
+    style="width: 760px"
     @update:show="(v: boolean) => { if (!v) importTarget = null }"
   >
     <NInput
+      v-if="importStep === 1"
       v-model:value="importText"
       type="textarea"
       :rows="10"
       class="mono"
-      placeholder="每行一个 ss:// vmess:// vless:// trojan:// hysteria2:// tuic:// 链接"
+      placeholder="每行一个分享链接（ss / vmess / vless / trojan / hysteria2 / tuic / mierus），或粘贴 Clash YAML"
     />
-    <NAlert v-if="importErrors.length" type="warning" title="以下行未能导入" style="margin-top: 12px">
+    <NDataTable
+      v-else
+      size="small"
+      :columns="importColumns"
+      :data="importRows"
+      :row-key="(r: ImportRow) => r.key"
+      :checked-row-keys="checkedKeys"
+      :max-height="360"
+      @update:checked-row-keys="setChecked"
+    />
+    <NAlert v-if="importErrors.length" type="warning" title="以下内容未能解析" style="margin-top: 12px">
       <div v-for="(e, i) in importErrors" :key="i"><code>{{ e.line }}</code>：{{ e.message }}</div>
     </NAlert>
     <template #footer>
-      <NSpace justify="end">
+      <NSpace v-if="importStep === 1" justify="end">
         <NButton @click="importTarget = null">关闭</NButton>
-        <NButton type="primary" :loading="importing" @click="doImport">导入</NButton>
+        <NButton type="primary" :loading="parsing" :disabled="!importText.trim()" @click="doParse">解析</NButton>
       </NSpace>
+      <div v-else style="display: flex; justify-content: space-between; align-items: center">
+        <span class="muted">已选 {{ selectedCount }} / {{ importRows.length }}</span>
+        <NSpace>
+          <NButton @click="importStep = 1">返回修改</NButton>
+          <NButton type="primary" :loading="importing" :disabled="selectedCount === 0" @click="doImport">
+            导入所选 ({{ selectedCount }})
+          </NButton>
+        </NSpace>
+      </div>
     </template>
   </NModal>
 </template>
