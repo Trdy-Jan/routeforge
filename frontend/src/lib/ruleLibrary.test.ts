@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { LibraryItem, Profile } from '../api/types'
+import type { LibraryItem, Profile, Rule } from '../api/types'
 import { addLibraryRule, canUseGeoRule, searchLibrary } from './ruleLibrary'
 
 const BASE = 'https://github.com/MetaCubeX/meta-rules-dat/raw/meta'
@@ -11,7 +11,7 @@ const aiNotCn: LibraryItem = {
 const tg: LibraryItem = { category: 'geoip', name: 'telegram', behavior: 'ipcidr', url: `${BASE}/geo/geoip/telegram.mrs` }
 const apple: LibraryItem = { category: 'geo-lite', name: 'apple', behavior: 'domain', url: `${BASE}/geo-lite/geosite/apple.mrs` }
 
-const MATCH = { type: 'MATCH', value: '', values: [], target: '节点选择', no_resolve: false } as const
+const MATCH: Rule = { type: 'MATCH', value: '', values: [], target: '节点选择', no_resolve: false }
 
 function profile(over: Partial<Profile> = {}): Profile {
   return {
