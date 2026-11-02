@@ -8,8 +8,11 @@ from sqlmodel import Session, func, select
 
 from routeforge.api.deps import CacheDep, HttpDep, SessionDep, require_admin
 from routeforge.db.models import NodeRow, Source
+from routeforge.parsers.clash_proxy import from_clash, to_clash
+from routeforge.parsers.errors import ParseError, UnsupportedNode
+from routeforge.parsers.manual import parse_manual_input
 from routeforge.parsers.uri import LineError
-from routeforge.services.library import delete_source, import_links
+from routeforge.services.library import append_nodes, delete_source, existing_names
 from routeforge.sources.refresh import refresh_source
 
 router = APIRouter(prefix="/api/sources", tags=["sources"], dependencies=[Depends(require_admin)])
@@ -60,13 +63,36 @@ class SourceOut(BaseModel):
     node_count: int
 
 
+class ParseIn(BaseModel):
+    text: str = Field(min_length=1, max_length=500_000)
+
+
+class ParsedNode(BaseModel):
+    name: str
+    type: str
+    server: str
+    port: int
+    port_range: str | None = None
+    config: dict
+
+
+class ParseOut(BaseModel):
+    nodes: list[ParsedNode]
+    errors: list[LineError]
+    existing_names: list[str]
+
+
+class ImportItem(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    config: dict
+
+
 class ImportIn(BaseModel):
-    text: str = Field(min_length=1)
+    nodes: list[ImportItem] = Field(min_length=1, max_length=5000)
 
 
 class ImportOut(BaseModel):
     added: int
-    errors: list[LineError]
 
 
 class RefreshOut(BaseModel):
@@ -152,11 +178,44 @@ def refresh(source_id: int, session: SessionDep, http: HttpDep, cache: CacheDep)
     )
 
 
-@router.post("/{source_id}/nodes/import")
-def import_nodes(source_id: int, body: ImportIn, session: SessionDep, cache: CacheDep) -> ImportOut:
+def _require_manual_source(session: Session, source_id: int) -> Source:
     source = _get(session, source_id)
     if source.kind != "manual":
         raise HTTPException(status_code=400, detail="订阅源的节点由订阅内容决定，不能手动导入")
-    result = import_links(session, source.id, body.text)
+    return source
+
+
+@router.post("/{source_id}/nodes/parse")
+def parse_nodes(source_id: int, body: ParseIn, session: SessionDep) -> ParseOut:
+    """只解析、不写库：返回可勾选的节点、解析错误和该节点源已有的节点名。"""
+    source = _require_manual_source(session, source_id)
+    outcome = parse_manual_input(body.text)
+    nodes: list[ParsedNode] = []
+    errors = list(outcome.errors)
+    for node in outcome.nodes:
+        try:
+            config = to_clash(node)
+        except UnsupportedNode as e:
+            errors.append(LineError(line=node.name, message=str(e)))
+            continue
+        nodes.append(ParsedNode(name=node.name, type=node.type, server=node.server, port=node.port,
+                                port_range=getattr(node, "port_range", None), config=config))
+    return ParseOut(nodes=nodes, errors=errors, existing_names=existing_names(session, source.id))
+
+
+@router.post("/{source_id}/nodes/import")
+def import_nodes(source_id: int, body: ImportIn, session: SessionDep, cache: CacheDep) -> ImportOut:
+    """导入勾选的节点：逐个重新校验，任一无效则整批拒绝。"""
+    source = _require_manual_source(session, source_id)
+    nodes = []
+    for i, item in enumerate(body.nodes, start=1):
+        name = item.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail=f"第 {i} 个节点名称不能为空")
+        try:
+            nodes.append(from_clash({**item.config, "name": name}))
+        except ParseError as e:
+            raise HTTPException(status_code=400, detail=f"第 {i} 个节点「{name}」无效：{e}") from e
+    added = append_nodes(session, source.id, nodes)
     cache.invalidate()
-    return ImportOut(added=result.added, errors=result.errors)
+    return ImportOut(added=added)

@@ -17,3 +17,10 @@ def mock_client(routes: dict) -> httpx.Client:
         return route
 
     return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def import_text(admin, sid, text):
+    """手动节点源导入：先解析，再导入全部解析结果。返回 (解析结果, 导入响应)。"""
+    parsed = admin.post(f"/api/sources/{sid}/nodes/parse", json={"text": text}).json()
+    items = [{"name": n["name"], "config": n["config"]} for n in parsed["nodes"]]
+    return parsed, admin.post(f"/api/sources/{sid}/nodes/import", json={"nodes": items})

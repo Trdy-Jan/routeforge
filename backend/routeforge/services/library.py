@@ -6,14 +6,7 @@ from sqlmodel import Session, func, select
 
 from routeforge.db.models import NodeRow, Source
 from routeforge.ir.node import Node
-from routeforge.parsers.uri import LineError, parse_many
 from routeforge.resolver import LibraryNode
-
-
-@dataclass
-class ImportResult:
-    added: int
-    errors: list[LineError]
 
 
 @dataclass
@@ -28,14 +21,18 @@ def load_library(session: Session) -> list[LibraryNode]:
     return [LibraryNode(id=r.id, source_id=r.source_id, enabled=r.enabled, node=r.to_node()) for r in rows]
 
 
-def import_links(session: Session, source_id: int, text: str) -> ImportResult:
-    outcome = parse_many(text)
+def existing_names(session: Session, source_id: int) -> list[str]:
+    return list(session.exec(select(NodeRow.name).where(NodeRow.source_id == source_id)).all())
+
+
+def append_nodes(session: Session, source_id: int, nodes: list[Node]) -> int:
+    """把节点按顺序追加到节点源末尾，返回追加数量。"""
     current = session.exec(select(func.max(NodeRow.position)).where(NodeRow.source_id == source_id)).one()
     start = 0 if current is None else current + 1
-    for i, node in enumerate(outcome.nodes):
+    for i, node in enumerate(nodes):
         session.add(NodeRow.from_node(source_id, node, start + i))
     session.commit()
-    return ImportResult(added=len(outcome.nodes), errors=outcome.errors)
+    return len(nodes)
 
 
 def sync_nodes(session: Session, source_id: int, nodes: list[Node]) -> SyncResult:

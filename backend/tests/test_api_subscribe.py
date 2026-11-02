@@ -2,6 +2,7 @@ from urllib.parse import quote
 
 import httpx
 import yaml
+from tests.helpers import import_text
 
 SUB_URL = "https://airport.example/sub"
 SS_HK = "ss://YWVzLTI1Ni1nY206dGVzdA@1.2.3.4:8388#%E9%A6%99%E6%B8%AF%2001"
@@ -20,7 +21,7 @@ def make_profile(admin, body=GOOD) -> dict:
 
 def manual_with(admin, links: str) -> int:
     sid = admin.post("/api/sources", json={"kind": "manual", "name": "手动"}).json()["id"]
-    admin.post(f"/api/sources/{sid}/nodes/import", json={"text": links})
+    import_text(admin, sid, links)
     return sid
 
 

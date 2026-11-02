@@ -2,11 +2,7 @@ from sqlmodel import Session, select
 
 from routeforge.db.models import NodeRow, Source
 from routeforge.ir.node import SSNode
-from routeforge.services.library import delete_source, import_links, load_library, sync_nodes
-
-LINK_A = "ss://YWVzLTI1Ni1nY206dGVzdA@1.2.3.4:8388#A"
-LINK_B = "ss://YWVzLTI1Ni1nY206dGVzdA@1.2.3.4:8389#B"
-
+from routeforge.services.library import append_nodes, delete_source, existing_names, load_library, sync_nodes
 
 def ss(name: str, port: int = 1) -> SSNode:
     return SSNode(name=name, server="1.1.1.1", port=port, cipher="aes-128-gcm", password="p")
@@ -20,15 +16,15 @@ def make_source(s: Session, kind: str = "manual") -> Source:
     return src
 
 
-def test_import_links_appends_and_reports_bad_lines(engine):
+def test_append_nodes_appends_to_end_and_existing_names(engine):
     with Session(engine) as s:
-        src = make_source(s)
-        first = import_links(s, src.id, f"{LINK_A}\nnot-a-link\n")
-        assert first.added == 1
-        assert [e.line for e in first.errors] == ["not-a-link"]
-        import_links(s, src.id, LINK_B)
-        rows = s.exec(select(NodeRow).order_by(NodeRow.position)).all()
-        assert [(r.name, r.position) for r in rows] == [("A", 0), ("B", 1)]
+        src, other = make_source(s), make_source(s)
+        assert append_nodes(s, src.id, [ss("A")]) == 1
+        assert append_nodes(s, src.id, [ss("B"), ss("C")]) == 2
+        append_nodes(s, other.id, [ss("Z")])
+        rows = s.exec(select(NodeRow).where(NodeRow.source_id == src.id).order_by(NodeRow.position)).all()
+        assert [(r.name, r.position) for r in rows] == [("A", 0), ("B", 1), ("C", 2)]
+        assert sorted(existing_names(s, src.id)) == ["A", "B", "C"]
 
 
 def test_sync_preserves_identity_and_enabled_and_handles_duplicates(engine):
@@ -65,8 +61,8 @@ def test_sync_only_touches_its_own_source(engine):
 def test_load_library_order_and_fields(engine):
     with Session(engine) as s:
         a, b = make_source(s), make_source(s)
-        import_links(s, b.id, LINK_B)
-        import_links(s, a.id, LINK_A)
+        append_nodes(s, b.id, [ss("B")])
+        append_nodes(s, a.id, [ss("A")])
         library = load_library(s)
         assert [(ln.source_id, ln.node.name) for ln in library] == [(a.id, "A"), (b.id, "B")]
         assert all(ln.enabled for ln in library)
@@ -76,7 +72,7 @@ def test_delete_source_removes_its_nodes(engine):
     with Session(engine) as s:
         src = make_source(s)
         src_id = src.id
-        import_links(s, src_id, LINK_A)
+        append_nodes(s, src_id, [ss("A")])
         delete_source(s, src)
         assert s.exec(select(NodeRow)).all() == []
         assert s.get(Source, src_id) is None

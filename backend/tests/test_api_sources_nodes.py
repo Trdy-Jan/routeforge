@@ -1,5 +1,7 @@
 import httpx
 
+from tests.helpers import import_text
+
 SUB_URL = "https://airport.example/sub"
 LINKS = (
     "ss://YWVzLTI1Ni1nY206dGVzdA@1.2.3.4:8388#A\n"
@@ -28,9 +30,9 @@ def test_requires_login(client):
 
 def test_manual_source_import_list_and_edit(admin):
     sid = create_manual(admin)
-    result = admin.post(f"/api/sources/{sid}/nodes/import", json={"text": LINKS}).json()
-    assert result["added"] == 2
-    assert result["errors"] == [{"line": "broken", "message": "不是分享链接"}]
+    parsed, result = import_text(admin, sid, LINKS)
+    assert result.json() == {"added": 2}
+    assert parsed["errors"] == [{"line": "broken", "message": "不是分享链接"}]
 
     nodes = admin.get("/api/nodes", params={"source_id": sid}).json()
     assert [n["name"] for n in nodes] == ["A", "B"]
@@ -69,7 +71,10 @@ def test_subscription_nodes_cannot_be_renamed_deleted_or_imported(admin, routes)
     assert admin.patch(f"/api/nodes/{nid}", json={"name": "x"}).status_code == 400
     assert admin.patch(f"/api/nodes/{nid}", json={"enabled": False}).json()["enabled"] is False
     assert admin.delete(f"/api/nodes/{nid}").status_code == 400
-    assert admin.post(f"/api/sources/{src['id']}/nodes/import", json={"text": LINKS}).status_code == 400
+    assert admin.post(f"/api/sources/{src['id']}/nodes/parse", json={"text": LINKS}).status_code == 400
+    cfg = {"name": "X", "type": "ss", "server": "a", "port": 1, "cipher": "aes-128-gcm", "password": "p"}
+    r = admin.post(f"/api/sources/{src['id']}/nodes/import", json={"nodes": [{"name": "X", "config": cfg}]})
+    assert r.status_code == 400
 
 
 def test_source_validation_and_kind_rules(admin):
@@ -85,7 +90,7 @@ def test_source_validation_and_kind_rules(admin):
 
 def test_delete_source_removes_nodes(admin):
     sid = create_manual(admin)
-    admin.post(f"/api/sources/{sid}/nodes/import", json={"text": LINKS})
+    import_text(admin, sid, LINKS)
     assert admin.delete(f"/api/sources/{sid}").status_code == 204
     assert admin.get("/api/sources").json() == []
     assert admin.get("/api/nodes").json() == []
@@ -93,7 +98,7 @@ def test_delete_source_removes_nodes(admin):
 
 def test_match_filter(admin):
     sid = create_manual(admin)
-    admin.post(f"/api/sources/{sid}/nodes/import", json={"text": LINKS})
+    import_text(admin, sid, LINKS)
     matched = admin.post("/api/nodes/match", json={"source_id": sid, "name_regex": "^A$"}).json()
     assert [n["name"] for n in matched] == ["A"]
     assert admin.post("/api/nodes/match", json={"name_regex": "("}).status_code == 400
@@ -128,7 +133,7 @@ def test_bulk_ids_capped(admin):
 
 def test_edit_manual_node_config(admin):
     sid = create_manual(admin)
-    admin.post(f"/api/sources/{sid}/nodes/import", json={"text": LINKS})
+    import_text(admin, sid, LINKS)
     node = admin.get("/api/nodes").json()[0]
     admin.patch(f"/api/nodes/{node['id']}", json={"enabled": False})
 
@@ -146,7 +151,7 @@ def test_edit_manual_node_config(admin):
 
 def test_edit_node_config_validation(admin, routes):
     sid = create_manual(admin)
-    admin.post(f"/api/sources/{sid}/nodes/import", json={"text": LINKS})
+    import_text(admin, sid, LINKS)
     nid = admin.get("/api/nodes").json()[0]["id"]
     for bad in ("name: x\ntype: ss\nserver: a\nport: 0\ncipher: c\npassword: p\n",  # 端口非法
                 "name: x\ntype: wireguard\nserver: a\nport: 1\n",  # 不支持的类型
@@ -166,7 +171,7 @@ def test_edit_node_config_validation(admin, routes):
 
 def test_bulk_delete_skips_subscription_nodes(admin, routes):
     sid = create_manual(admin)
-    admin.post(f"/api/sources/{sid}/nodes/import", json={"text": LINKS})
+    import_text(admin, sid, LINKS)
     src = create_subscription(admin, routes)
     ids = [n["id"] for n in admin.get("/api/nodes").json()]
     assert len(ids) == 4
@@ -180,3 +185,43 @@ def test_bulk_delete_skips_subscription_nodes(admin, routes):
 def test_bulk_delete_ids_capped(admin):
     resp = admin.post("/api/nodes/bulk-delete", json={"ids": list(range(5001))})
     assert resp.status_code == 422
+
+
+def test_parse_does_not_write_and_lists_existing(admin):
+    sid = create_manual(admin)
+    parsed = admin.post(f"/api/sources/{sid}/nodes/parse", json={"text": LINKS}).json()
+    assert [n["name"] for n in parsed["nodes"]] == ["A", "B"]
+    assert parsed["errors"] == [{"line": "broken", "message": "不是分享链接"}]
+    assert parsed["existing_names"] == [] and admin.get("/api/nodes").json() == []
+    import_text(admin, sid, LINKS)
+    again = admin.post(f"/api/sources/{sid}/nodes/parse", json={"text": LINKS}).json()
+    assert sorted(again["existing_names"]) == ["A", "B"]
+
+
+def test_import_selected_mieru_with_rename(admin):
+    sid = create_manual(admin)
+    text = "mierus://u:p@203.0.113.10?profile=d&port=2090-2099&port=443&protocol=TCP&protocol=UDP"
+    parsed = admin.post(f"/api/sources/{sid}/nodes/parse", json={"text": text}).json()
+    first = parsed["nodes"][0]
+    assert (first["type"], first["port"], first["port_range"]) == ("mieru", 2090, "2090-2099")
+    r = admin.post(f"/api/sources/{sid}/nodes/import", json={"nodes": [{"name": "香港 M", "config": first["config"]}]})
+    assert r.json() == {"added": 1}
+    node = admin.get("/api/nodes").json()[0]
+    assert (node["name"], node["port_range"]) == ("香港 M", "2090-2099")
+
+
+def test_import_trims_names(admin):
+    sid = create_manual(admin)
+    cfg = admin.post(f"/api/sources/{sid}/nodes/parse", json={"text": LINKS}).json()["nodes"][0]["config"]
+    assert admin.post(f"/api/sources/{sid}/nodes/import", json={"nodes": [{"name": "  X  ", "config": cfg}]}).status_code == 200
+    assert admin.get("/api/nodes").json()[0]["name"] == "X"
+    assert admin.post(f"/api/sources/{sid}/nodes/import", json={"nodes": [{"name": "   ", "config": cfg}]}).status_code == 400
+
+
+def test_import_rejects_invalid_node_atomically(admin):
+    sid = create_manual(admin)
+    good = admin.post(f"/api/sources/{sid}/nodes/parse", json={"text": LINKS}).json()["nodes"][0]
+    bad = {"name": "坏", "config": {**good["config"], "type": "snell"}}
+    r = admin.post(f"/api/sources/{sid}/nodes/import", json={"nodes": [good, bad]})
+    assert r.status_code == 400 and "第 2 个节点「坏」" in r.json()["detail"]
+    assert admin.get("/api/nodes").json() == []

@@ -1,3 +1,5 @@
+from tests.helpers import import_text
+
 SS_HK = "ss://YWVzLTI1Ni1nY206dGVzdA@1.2.3.4:8388#%E9%A6%99%E6%B8%AF%2001"
 GOOD = {
     "name": "方案A",
@@ -14,7 +16,7 @@ def create_profile(admin, name="我的方案") -> dict:
 
 def import_hk(admin) -> None:
     sid = admin.post("/api/sources", json={"kind": "manual", "name": "手动"}).json()["id"]
-    admin.post(f"/api/sources/{sid}/nodes/import", json={"text": SS_HK})
+    import_text(admin, sid, SS_HK)
 
 
 def test_requires_login(client):

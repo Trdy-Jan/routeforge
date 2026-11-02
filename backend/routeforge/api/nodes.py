@@ -23,6 +23,7 @@ class NodeOut(BaseModel):
     type: str
     server: str
     port: int
+    port_range: str | None = None
     enabled: bool
     position: int
     data: dict
@@ -59,7 +60,8 @@ class BulkDeleteOut(BaseModel):
 
 def _out(row: NodeRow) -> NodeOut:
     return NodeOut(id=row.id, source_id=row.source_id, name=row.name, type=row.data["type"],
-                   server=row.data["server"], port=row.data["port"], enabled=row.enabled,
+                   server=row.data["server"], port=row.data["port"], port_range=row.data.get("port_range"),
+                   enabled=row.enabled,
                    position=row.position, data=row.data)
 
 
