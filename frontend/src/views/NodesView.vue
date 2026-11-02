@@ -60,22 +60,58 @@ async function bulk(enabled: boolean) {
   }
 }
 
-const renaming = ref<NodeItem | null>(null)
-const newName = ref('')
-
-function openRename(n: NodeItem) {
-  renaming.value = n
-  newName.value = n.name
+function bulkRemove() {
+  const ids = checked.value.map(Number)
+  const selected = nodes.value.filter((n) => ids.includes(n.id))
+  const manualCount = selected.filter(isManual).length
+  if (manualCount === 0) {
+    message.warning('选中的都是订阅节点，会随订阅刷新恢复，不能删除（可以改为停用）')
+    return
+  }
+  const skipped = ids.length - manualCount
+  dialog.warning({
+    title: '批量删除节点',
+    content: `确定删除选中的 ${manualCount} 个节点？` + (skipped ? `其中 ${skipped} 个订阅节点将被跳过。` : ''),
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const r = await api.bulkDeleteNodes(ids)
+        message.success(`已删除 ${r.deleted} 个节点` + (r.skipped ? `，跳过 ${r.skipped} 个订阅节点` : ''))
+        checked.value = []
+        await load()
+      } catch (e) {
+        message.error((e as Error).message)
+      }
+    },
+  })
 }
 
-async function doRename() {
-  if (!renaming.value) return
+const editing = ref<NodeItem | null>(null)
+const editConfig = ref('')
+const saving = ref(false)
+
+async function openEdit(n: NodeItem) {
   try {
-    await api.updateNode(renaming.value.id, { name: newName.value.trim() })
-    renaming.value = null
+    editConfig.value = (await api.getNodeConfig(n.id)).config
+    editing.value = n
+  } catch (e) {
+    message.error((e as Error).message)
+  }
+}
+
+async function doEdit() {
+  if (!editing.value) return
+  saving.value = true
+  try {
+    await api.updateNode(editing.value.id, { config: editConfig.value })
+    editing.value = null
+    message.success('节点已保存')
     await load()
   } catch (e) {
     message.error((e as Error).message)
+  } finally {
+    saving.value = false
   }
 }
 
@@ -126,7 +162,7 @@ const columns: DataTableColumns<NodeItem> = [
     render: (n) =>
       isManual(n)
         ? h(NSpace, { size: 'small', justify: 'end', wrap: false }, () => [
-            h(NButton, { size: 'small', quaternary: true, onClick: () => openRename(n) }, () => '改名'),
+            h(NButton, { size: 'small', quaternary: true, onClick: () => openEdit(n) }, () => '编辑'),
             h(NButton, { size: 'small', quaternary: true, type: 'error', onClick: () => remove(n) }, () => '删除'),
           ])
         : h('span', { class: 'muted', style: 'font-size: 12px' }, '随订阅更新'),
@@ -153,6 +189,7 @@ const columns: DataTableColumns<NodeItem> = [
       <span class="muted">已选 <span class="mono">{{ checked.length }}</span> 个</span>
       <NButton size="small" secondary type="primary" @click="bulk(true)">启用</NButton>
       <NButton size="small" secondary @click="bulk(false)">停用</NButton>
+      <NButton size="small" secondary type="error" @click="bulkRemove">删除</NButton>
     </div>
   </div>
   <NDataTable
@@ -170,17 +207,26 @@ const columns: DataTableColumns<NodeItem> = [
   </NDataTable>
 
   <NModal
-    :show="renaming !== null"
+    :show="editing !== null"
     preset="card"
-    title="节点改名"
-    style="width: 420px"
-    @update:show="(v: boolean) => { if (!v) renaming = null }"
+    title="编辑节点"
+    style="width: 560px; max-width: calc(100vw - 32px)"
+    @update:show="(v: boolean) => { if (!v) editing = null }"
   >
-    <NInput v-model:value="newName" @keyup.enter="doRename" />
+    <p class="muted" style="margin: 0 0 10px; font-size: 13px">
+      使用 Clash / Mihomo 的 proxy 格式，可修改名称、协议、地址、端口、认证、TLS 与传输层等全部字段。
+    </p>
+    <NInput
+      v-model:value="editConfig"
+      type="textarea"
+      class="config-editor"
+      :autosize="{ minRows: 10, maxRows: 24 }"
+      spellcheck="false"
+    />
     <template #footer>
       <NSpace justify="end">
-        <NButton @click="renaming = null">取消</NButton>
-        <NButton type="primary" :disabled="!newName.trim()" @click="doRename">保存</NButton>
+        <NButton @click="editing = null">取消</NButton>
+        <NButton type="primary" :loading="saving" :disabled="!editConfig.trim()" @click="doEdit">保存</NButton>
       </NSpace>
     </template>
   </NModal>
@@ -199,5 +245,9 @@ const columns: DataTableColumns<NodeItem> = [
   display: flex;
   gap: 8px;
   margin-left: auto;
+}
+.config-editor :deep(textarea) {
+  font-family: var(--rf-mono);
+  font-size: 13px;
 }
 </style>

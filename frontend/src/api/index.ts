@@ -24,11 +24,14 @@ export const api = {
 
   listNodes: (params: { source_id?: number | null; q?: string } = {}) =>
     request<NodeItem[]>('GET', '/api/nodes' + buildQuery(params)),
-  updateNode: (id: number, body: { name?: string; enabled?: boolean }) =>
+  updateNode: (id: number, body: { name?: string; enabled?: boolean; config?: string }) =>
     request<NodeItem>('PATCH', `/api/nodes/${id}`, body),
+  getNodeConfig: (id: number) => request<{ config: string }>('GET', `/api/nodes/${id}/config`),
   deleteNode: (id: number) => request<void>('DELETE', `/api/nodes/${id}`),
   bulkNodes: (ids: number[], enabled: boolean) =>
     request<{ updated: number }>('POST', '/api/nodes/bulk', { ids, enabled }),
+  bulkDeleteNodes: (ids: number[]) =>
+    request<{ deleted: number; skipped: number }>('POST', '/api/nodes/bulk-delete', { ids }),
   matchNodes: (filter: Omit<FilterMember, 'kind'>) => request<NodeItem[]>('POST', '/api/nodes/match', filter),
 
   listProfiles: () => request<ProfileSummary[]>('GET', '/api/profiles'),

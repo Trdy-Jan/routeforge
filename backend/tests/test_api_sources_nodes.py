@@ -124,3 +124,59 @@ def test_changing_url_clears_last_fetched_at(admin, routes):
 def test_bulk_ids_capped(admin):
     resp = admin.post("/api/nodes/bulk", json={"ids": list(range(5001)), "enabled": False})
     assert resp.status_code == 422
+
+
+def test_edit_manual_node_config(admin):
+    sid = create_manual(admin)
+    admin.post(f"/api/sources/{sid}/nodes/import", json={"text": LINKS})
+    node = admin.get("/api/nodes").json()[0]
+    admin.patch(f"/api/nodes/{node['id']}", json={"enabled": False})
+
+    config = admin.get(f"/api/nodes/{node['id']}/config").json()["config"]
+    assert "server: 1.2.3.4" in config and "cipher: aes-256-gcm" in config
+
+    new = ("name: 新节点\ntype: trojan\nserver: example.com\nport: 443\npassword: pw\n"
+           "sni: sni.example.com\nnetwork: ws\nws-opts:\n  path: /ws\n")
+    updated = admin.patch(f"/api/nodes/{node['id']}", json={"config": new}).json()
+    assert (updated["name"], updated["type"], updated["server"], updated["port"]) == ("新节点", "trojan", "example.com", 443)
+    assert updated["data"]["tls"]["sni"] == "sni.example.com"
+    assert updated["data"]["transport"] == {"type": "ws", "path": "/ws", "host": None, "service_name": None}
+    assert updated["enabled"] is False and updated["position"] == node["position"]
+
+
+def test_edit_node_config_validation(admin, routes):
+    sid = create_manual(admin)
+    admin.post(f"/api/sources/{sid}/nodes/import", json={"text": LINKS})
+    nid = admin.get("/api/nodes").json()[0]["id"]
+    for bad in ("name: x\ntype: ss\nserver: a\nport: 0\ncipher: c\npassword: p\n",  # 端口非法
+                "name: x\ntype: wireguard\nserver: a\nport: 1\n",  # 不支持的类型
+                "[1, 2]",  # 不是映射
+                "a: [",  # YAML 语法错误
+                "type: ss\nserver: a\nport: 1\ncipher: c\npassword: p\n"):  # 缺少名称
+        resp = admin.patch(f"/api/nodes/{nid}", json={"config": bad})
+        assert resp.status_code == 400, bad
+    assert admin.get("/api/nodes").json()[0]["name"] == "A"
+
+    src = create_subscription(admin, routes)
+    sub_nid = admin.get("/api/nodes", params={"source_id": src["id"]}).json()[0]["id"]
+    assert admin.get(f"/api/nodes/{sub_nid}/config").status_code == 200
+    ok = "name: x\ntype: ss\nserver: a\nport: 1\ncipher: c\npassword: p\n"
+    assert admin.patch(f"/api/nodes/{sub_nid}", json={"config": ok}).status_code == 400
+
+
+def test_bulk_delete_skips_subscription_nodes(admin, routes):
+    sid = create_manual(admin)
+    admin.post(f"/api/sources/{sid}/nodes/import", json={"text": LINKS})
+    src = create_subscription(admin, routes)
+    ids = [n["id"] for n in admin.get("/api/nodes").json()]
+    assert len(ids) == 4
+
+    resp = admin.post("/api/nodes/bulk-delete", json={"ids": ids + [99999]})
+    assert resp.json() == {"deleted": 2, "skipped": 2}
+    remaining = admin.get("/api/nodes").json()
+    assert {n["source_id"] for n in remaining} == {src["id"]}
+
+
+def test_bulk_delete_ids_capped(admin):
+    resp = admin.post("/api/nodes/bulk-delete", json={"ids": list(range(5001))})
+    assert resp.status_code == 422
