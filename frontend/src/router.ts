@@ -5,6 +5,7 @@ import SourcesView from './views/SourcesView.vue'
 import NodesView from './views/NodesView.vue'
 import ProfileEditView from './views/ProfileEditView.vue'
 import ProfilesView from './views/ProfilesView.vue'
+import RuleLibraryView from './views/RuleLibraryView.vue'
 import SettingsView from './views/SettingsView.vue'
 
 declare module 'vue-router' {
@@ -28,7 +29,8 @@ const routes: RouteRecordRaw[] = [
     props: (route) => ({ id: Number(route.params.id) }),
     meta: { activeMenu: 'profiles' },
   },
-  { path: '/settings', name: 'settings', component: SettingsView, meta: { title: '设置', order: 4 } },
+  { path: '/rule-library', name: 'rule-library', component: RuleLibraryView, meta: { title: '规则库', order: 4 } },
+  { path: '/settings', name: 'settings', component: SettingsView, meta: { title: '设置', order: 5 } },
 ]
 
 export const router = createRouter({ history: createWebHistory(), routes })
