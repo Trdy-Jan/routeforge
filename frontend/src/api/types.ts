@@ -188,3 +188,24 @@ export interface OpenClashSettingsInput {
   profile_id: number | null
   auto_push: boolean
 }
+
+export type LibraryCategory = 'geosite' | 'geoip' | 'geo-lite'
+
+export interface LibraryItem {
+  category: LibraryCategory
+  name: string
+  behavior: 'domain' | 'ipcidr'
+  url: string
+}
+
+export interface LibraryIndex {
+  updated_at: string | null
+  error: string | null
+  items: LibraryItem[]
+}
+
+export interface RuleContent {
+  total: number
+  lines: string[]
+  truncated: boolean
+}

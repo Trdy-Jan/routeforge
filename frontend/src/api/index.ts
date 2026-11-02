@@ -1,6 +1,6 @@
 import { request } from './client'
 import type {
-  FilterMember, ImportResult, NodeItem, OpenClashSettings, OpenClashSettingsInput, Preview, Profile, ProfileDetail, ProfileSummary, RefreshResult,
+  FilterMember, ImportResult, LibraryCategory, LibraryIndex, RuleContent, NodeItem, OpenClashSettings, OpenClashSettingsInput, Preview, Profile, ProfileDetail, ProfileSummary, RefreshResult,
   PushStatus, Source, SourceInput, SourcePatch, TemplateInfo,
 } from './types'
 
@@ -46,6 +46,11 @@ export const api = {
   preview: (id: number) => request<Preview>('GET', `/api/profiles/${id}/preview`),
 
   listTemplates: () => request<TemplateInfo[]>('GET', '/api/templates'),
+
+  ruleLibrary: () => request<LibraryIndex>('GET', '/api/rule-library'),
+  refreshRuleLibrary: () => request<LibraryIndex>('POST', '/api/rule-library/refresh'),
+  ruleContent: (category: LibraryCategory, name: string) =>
+    request<RuleContent>('GET', `/api/rule-library/${category}/${encodeURIComponent(name)}/content`),
 
   getOpenClash: () => request<OpenClashSettings>('GET', '/api/openclash/settings'),
   saveOpenClash: (body: OpenClashSettingsInput) => request<OpenClashSettings>('PUT', '/api/openclash/settings', body),
