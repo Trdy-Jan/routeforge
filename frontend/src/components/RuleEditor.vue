@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { NAlert, NButton, NCheckbox, NInput, NSelect, NSpace } from 'naive-ui'
-import { MULTI_VALUE_RULE_TYPES, RULE_TYPES, type Profile, type Rule, type RuleType } from '../api/types'
+import { computed, ref } from 'vue'
+import { NAlert, NButton, NCheckbox, NDrawer, NDrawerContent, NInput, NSelect, NSpace, useMessage } from 'naive-ui'
+import { MULTI_VALUE_RULE_TYPES, RULE_TYPES, type LibraryItem, type Profile, type Rule, type RuleType } from '../api/types'
 import { useDragSort } from '../lib/dragSort'
 import { insertBeforeMatch, moveRule, newRule, splitRuleValues, targetOptions } from '../lib/profile'
+import { addLibraryRule, canUseGeoRule, type AddMode } from '../lib/ruleLibrary'
+import RuleLibraryBrowser from './RuleLibraryBrowser.vue'
 
 const profile = defineModel<Profile>({ required: true })
 const drag = useDragSort()
@@ -25,6 +27,23 @@ const targets = computed(() => targetOptions(profile.value).map((t) => ({ label:
 const providerOptions = computed(() => profile.value.rule_providers.map((p) => ({ label: p.name, value: p.name })))
 const hasMatch = computed(() => profile.value.rules.some((r) => r.type === 'MATCH'))
 const defaultTarget = computed(() => profile.value.groups[0]?.name ?? 'DIRECT')
+
+const message = useMessage()
+const showLibrary = ref(false)
+const libraryTarget = ref<string | null>(null)
+const libraryTargetValue = computed(() =>
+  libraryTarget.value && targetOptions(profile.value).includes(libraryTarget.value) ? libraryTarget.value : defaultTarget.value,
+)
+
+function addFromLibrary(item: LibraryItem, mode: AddMode) {
+  const result = addLibraryRule(profile.value, item, mode, libraryTargetValue.value)
+  if (result.status === 'exists') {
+    message.warning(`已存在：第 ${result.index + 1} 条 → ${result.target}`)
+    return
+  }
+  profile.value = result.profile
+  message.success(`已加入：${item.name} → ${result.target}`)
+}
 
 function add() {
   profile.value.rules = insertBeforeMatch(profile.value.rules, newRule(defaultTarget.value))
@@ -129,11 +148,52 @@ function remove(i: number) {
       </span>
       <NButton size="tiny" quaternary type="error" @click="remove(i)">✕</NButton>
     </div>
-    <NButton dashed block style="margin-top: 4px" @click="add">添加规则（插在 MATCH 之前）</NButton>
+    <div class="add-row">
+      <NButton dashed class="add-row__main" @click="add">添加规则（插在 MATCH 之前）</NButton>
+      <NButton dashed @click="showLibrary = true">从规则库添加</NButton>
+    </div>
   </NSpace>
+
+  <NDrawer v-model:show="showLibrary" placement="right" :width="760" style="max-width: 100vw">
+    <NDrawerContent title="从规则库添加" closable>
+      <RuleLibraryBrowser>
+        <template #actions="{ item }">
+          <span class="lib-label">目标</span>
+          <NSelect
+            :value="libraryTargetValue"
+            :options="targets"
+            size="small"
+            style="width: 160px"
+            @update:value="(v: unknown) => (libraryTarget = v as string)"
+          />
+          <NButton size="small" type="primary" @click="addFromLibrary(item, 'rule-set')">加入为 RULE-SET</NButton>
+          <NButton
+            size="small"
+            :disabled="!canUseGeoRule(item)"
+            :title="canUseGeoRule(item) ? '' : '精简规则只能以规则集方式加入'"
+            @click="addFromLibrary(item, 'geo')"
+          >
+            {{ item.category === 'geoip' ? '用 GEOIP 规则' : '用 GEOSITE 规则' }}
+          </NButton>
+        </template>
+      </RuleLibraryBrowser>
+    </NDrawerContent>
+  </NDrawer>
 </template>
 
 <style scoped>
+.add-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.add-row__main {
+  flex: 1;
+}
+.lib-label {
+  color: var(--rf-muted);
+  font-size: 13px;
+}
 .hint {
   color: var(--rf-muted);
   font-size: 13px;
