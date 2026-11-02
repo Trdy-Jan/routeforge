@@ -225,3 +225,11 @@ def test_import_rejects_invalid_node_atomically(admin):
     r = admin.post(f"/api/sources/{sid}/nodes/import", json={"nodes": [good, bad]})
     assert r.status_code == 400 and "第 2 个节点「坏」" in r.json()["detail"]
     assert admin.get("/api/nodes").json() == []
+
+
+def test_import_malformed_config_is_400_not_500(admin):
+    sid = create_manual(admin)
+    cfg = {"name": "V", "type": "vmess", "server": "a", "port": 1, "uuid": "b831381d-6324-4d53-ad4f-8cda48b30811",
+           "network": "ws", "ws-opts": "str"}
+    r = admin.post(f"/api/sources/{sid}/nodes/import", json={"nodes": [{"name": "V", "config": cfg}]})
+    assert r.status_code == 400 and "第 1 个节点「V」" in r.json()["detail"]

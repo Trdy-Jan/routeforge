@@ -22,3 +22,15 @@ def test_proxies_document_and_links_still_work():
 def test_plain_garbage_reports_error():
     out = parse_manual_input("hello world")
     assert out.nodes == [] and out.errors
+
+
+def test_bare_list_with_non_mapping_item_keeps_good_nodes():
+    text = "- " + SINGLE.replace("\n", "\n  ").rstrip() + "\n- foo\n- {name: NoType, server: a, port: 1}\n"
+    out = parse_manual_input(text)
+    assert [n.name for n in out.nodes] == ["M"]
+    assert len(out.errors) == 2
+
+
+def test_input_without_any_node_reports_error():
+    out = parse_manual_input("# ss://comment-only")
+    assert out.nodes == [] and out.errors[0].message == "没有识别到任何节点"

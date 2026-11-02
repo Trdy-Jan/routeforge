@@ -79,3 +79,13 @@ def test_parse_many_expands_mieru_links():
     text = "mierus://u:p@h?profile=d&port=1&port=2&protocol=TCP&protocol=UDP\nbroken"
     outcome = parse_many(text)
     assert len(outcome.nodes) == 2 and len(outcome.errors) == 1
+
+
+def test_mierus_port_range_with_trailing_newline_rejected():
+    with pytest.raises(ParseError):
+        parse_uri_nodes("mierus://u:p@h?profile=d&port=9998-9999%0A&protocol=TCP")
+
+
+def test_mierus_host_with_port_rejected():
+    with pytest.raises(ParseError, match="端口"):
+        parse_uri_nodes("mierus://u:p@h.example.com:1234?profile=d&port=1&protocol=TCP")

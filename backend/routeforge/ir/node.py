@@ -90,7 +90,7 @@ _PORT_RANGE = re.compile(r"^(\d+)-(\d+)$")
 
 
 def port_range_bounds(value: str) -> tuple[int, int]:
-    m = _PORT_RANGE.match(value)
+    m = _PORT_RANGE.fullmatch(value)
     if not m:
         raise ValueError(f"无效的端口区间：{value}")
     start, end = int(m[1]), int(m[2])

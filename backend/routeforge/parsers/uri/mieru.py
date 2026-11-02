@@ -22,7 +22,11 @@ def parse(uri: str) -> list[MieruNode]:
     if not sep or not user or not password:
         raise ParseError("mierus：缺少 用户名:密码")
     if host.startswith("["):
-        host = host[1:].partition("]")[0]
+        host, _, after = host[1:].partition("]")
+    else:
+        after = ":" if ":" in host else ""
+    if after:
+        raise ParseError("mierus：服务器地址后不能带端口，端口请写在 port= 参数里")
     if not host:
         raise ParseError("mierus：缺少服务器地址")
 

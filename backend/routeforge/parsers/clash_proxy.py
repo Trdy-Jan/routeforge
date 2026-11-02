@@ -18,7 +18,7 @@ def from_clash(d: dict) -> Node:
         return _from_clash(d)
     except ParseError:
         raise
-    except (KeyError, TypeError, ValueError, ValidationError) as e:
+    except (KeyError, TypeError, ValueError, AttributeError, ValidationError) as e:
         raise ParseError(f"节点「{name_label(d)}」无效：{e}") from e
 
 
