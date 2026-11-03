@@ -32,6 +32,10 @@ class ProfileCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
 
 
+class ProfileClone(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+
+
 class ApplyTemplateIn(BaseModel):
     template_id: str
 
@@ -107,6 +111,16 @@ def delete_profile(profile_id: int, session: SessionDep, cache: CacheDep) -> Res
     session.commit()
     cache.invalidate()
     return Response(status_code=204)
+
+
+@router.post("/{profile_id}/clone", status_code=201)
+def clone_profile(profile_id: int, body: ProfileClone, session: SessionDep, cache: CacheDep) -> ProfileOut:
+    """复制方案的全部内容（分组、规则、规则集、链式代理），生成新的订阅令牌。"""
+    source = _get(session, profile_id).to_profile()
+    name = (body.name or "").strip() or f"{source.name} 副本"[:100]
+    row = ProfileRow.new(name)
+    row.set_profile(source.model_copy(update={"name": name}))
+    return _out(_save(session, row, cache))
 
 
 @router.post("/{profile_id}/apply-template")

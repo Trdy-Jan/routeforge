@@ -40,6 +40,8 @@ export const api = {
   createProfile: (name: string) => request<ProfileDetail>('POST', '/api/profiles', { name }),
   getProfile: (id: number) => request<ProfileDetail>('GET', `/api/profiles/${id}`),
   saveProfile: (id: number, profile: Profile) => request<ProfileDetail>('PUT', `/api/profiles/${id}`, profile),
+  cloneProfile: (id: number, name?: string) =>
+    request<ProfileDetail>('POST', `/api/profiles/${id}/clone`, name ? { name } : {}),
   deleteProfile: (id: number) => request<void>('DELETE', `/api/profiles/${id}`),
   applyTemplate: (id: number, templateId: string) =>
     request<{ profile: ProfileDetail; notes: string[] }>('POST', `/api/profiles/${id}/apply-template`,

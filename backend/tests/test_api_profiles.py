@@ -42,6 +42,29 @@ def test_create_get_update_delete(admin):
     assert admin.get(f"/api/profiles/{p['id']}").status_code == 404
 
 
+def test_clone_profile(admin):
+    p = create_profile(admin)
+    admin.put(f"/api/profiles/{p['id']}", json=GOOD)
+
+    c = admin.post(f"/api/profiles/{p['id']}/clone", json={})
+    assert c.status_code == 201
+    c = c.json()
+    assert c["id"] != p["id"] and c["token"] != p["token"] and c["last_good_at"] is None
+    assert c["profile"]["name"] == "方案A 副本"
+    original = admin.get(f"/api/profiles/{p['id']}").json()["profile"]
+    assert {**c["profile"], "name": original["name"]} == original
+
+    named = admin.post(f"/api/profiles/{p['id']}/clone", json={"name": "  办公室  "}).json()
+    assert named["profile"]["name"] == "办公室"
+
+    # 修改副本不影响原方案
+    admin.put(f"/api/profiles/{c['id']}", json={**GOOD, "name": "改过", "rules": []})
+    assert admin.get(f"/api/profiles/{p['id']}").json()["profile"]["rules"] != []
+
+    assert admin.post("/api/profiles/9999/clone", json={}).status_code == 404
+    assert admin.post(f"/api/profiles/{p['id']}/clone", json={"name": ""}).status_code == 422
+
+
 def test_templates_list_and_apply(admin):
     templates = admin.get("/api/templates").json()
     assert len(templates) == 8

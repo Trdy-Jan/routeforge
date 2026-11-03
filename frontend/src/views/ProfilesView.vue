@@ -18,6 +18,9 @@ const profiles = ref<ProfileSummary[]>([])
 const loading = ref(false)
 const showCreate = ref(false)
 const newName = ref('')
+const cloneSource = ref<ProfileSummary | null>(null)
+const cloneName = ref('')
+const cloning = ref(false)
 
 async function load() {
   loading.value = true
@@ -39,6 +42,27 @@ async function create() {
     router.push({ name: 'profile-edit', params: { id: p.id } })
   } catch (e) {
     message.error((e as Error).message)
+  }
+}
+
+function startClone(p: ProfileSummary) {
+  cloneSource.value = p
+  cloneName.value = `${p.name} 副本`.slice(0, 100)
+}
+
+async function clone() {
+  const src = cloneSource.value
+  if (!src || !cloneName.value.trim() || cloning.value) return
+  cloning.value = true
+  try {
+    const p = await api.cloneProfile(src.id, cloneName.value.trim())
+    cloneSource.value = null
+    message.success(`已复制为「${p.profile.name}」，订阅链接为新生成的`)
+    router.push({ name: 'profile-edit', params: { id: p.id } })
+  } catch (e) {
+    message.error((e as Error).message)
+  } finally {
+    cloning.value = false
   }
 }
 
@@ -83,12 +107,13 @@ const columns: DataTableColumns<ProfileSummary> = [
   {
     title: '',
     key: 'actions',
-    width: 150,
+    width: 200,
     align: 'right',
     render: (p) =>
       h(NSpace, { size: 'small', justify: 'end', wrap: false }, () => [
         h(NButton, { size: 'small', quaternary: true, onClick: () => router.push({ name: 'profile-edit', params: { id: p.id } }) },
           () => '编辑'),
+        h(NButton, { size: 'small', quaternary: true, onClick: () => startClone(p) }, () => '复制'),
         h(NButton, { size: 'small', quaternary: true, type: 'error', onClick: () => remove(p) }, () => '删除'),
       ]),
   },
@@ -119,6 +144,7 @@ const columns: DataTableColumns<ProfileSummary> = [
         <div style="margin-top: 10px"><SubscriptionLink :token="p.token" size="small" /></div>
         <div class="m-card__actions">
           <NButton size="small" quaternary @click="router.push({ name: 'profile-edit', params: { id: p.id } })">编辑</NButton>
+          <NButton size="small" quaternary @click="startClone(p)">复制</NButton>
           <NButton size="small" quaternary type="error" @click="remove(p)">删除</NButton>
         </div>
       </article>
@@ -134,6 +160,20 @@ const columns: DataTableColumns<ProfileSummary> = [
       <NSpace justify="end">
         <NButton @click="showCreate = false">取消</NButton>
         <NButton type="primary" :disabled="!newName.trim()" @click="create">创建</NButton>
+      </NSpace>
+    </template>
+  </NModal>
+
+  <NModal :show="cloneSource !== null" preset="card" title="复制方案" style="width: 420px"
+    @update:show="(v: boolean) => { if (!v) cloneSource = null }">
+    <p style="margin: 0 0 12px; color: var(--rf-text-muted)">
+      复制「{{ cloneSource?.name }}」的分组、规则、规则集和链式代理，并生成一条新的订阅链接。
+    </p>
+    <NInput v-model:value="cloneName" maxlength="100" placeholder="新方案名称" @keyup.enter="clone" />
+    <template #footer>
+      <NSpace justify="end">
+        <NButton @click="cloneSource = null">取消</NButton>
+        <NButton type="primary" :loading="cloning" :disabled="!cloneName.trim()" @click="clone">复制</NButton>
       </NSpace>
     </template>
   </NModal>
