@@ -233,3 +233,32 @@ def test_import_malformed_config_is_400_not_500(admin):
            "network": "ws", "ws-opts": "str"}
     r = admin.post(f"/api/sources/{sid}/nodes/import", json={"nodes": [{"name": "V", "config": cfg}]})
     assert r.status_code == 400 and "第 1 个节点「V」" in r.json()["detail"]
+
+
+def test_reparse_link_keeps_name_and_id(admin):
+    sid = create_manual(admin)
+    import_text(admin, sid, LINKS)
+    node = admin.get("/api/nodes", params={"source_id": sid}).json()[0]
+    link = "trojan://pw@5.6.7.8:443?sni=x.example#别的名字"
+    config = admin.post(f"/api/nodes/{node['id']}/reparse", json={"text": link}).json()["config"]
+    assert "type: trojan" in config and "server: 5.6.7.8" in config
+    assert f"name: {node['name']}" in config and "别的名字" not in config
+    # 只解析不写库
+    assert admin.get("/api/nodes", params={"source_id": sid}).json()[0]["type"] == "ss"
+
+    updated = admin.patch(f"/api/nodes/{node['id']}", json={"config": config}).json()
+    assert (updated["id"], updated["name"], updated["type"]) == (node["id"], node["name"], "trojan")
+
+
+def test_reparse_link_validation(admin, routes):
+    sid = create_manual(admin)
+    import_text(admin, sid, LINKS)
+    nid = admin.get("/api/nodes", params={"source_id": sid}).json()[0]["id"]
+    assert admin.post(f"/api/nodes/{nid}/reparse", json={"text": "broken"}).status_code == 400
+    two = admin.post(f"/api/nodes/{nid}/reparse", json={"text": LINKS})
+    assert two.status_code == 400 and "1 个" in two.json()["detail"]
+    assert admin.post("/api/nodes/99999/reparse", json={"text": LINKS}).status_code == 404
+
+    create_subscription(admin, routes)
+    sub_nid = [n for n in admin.get("/api/nodes").json() if n["source_id"] != sid][0]["id"]
+    assert admin.post(f"/api/nodes/{sub_nid}/reparse", json={"text": "ss://YWVzLTI1Ni1nY206dGVzdA@1.2.3.4:8388#A"}).status_code == 400

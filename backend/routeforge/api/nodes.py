@@ -10,6 +10,7 @@ from routeforge.db.models import NodeRow, Source
 from routeforge.ir.profile import Filter
 from routeforge.parsers.clash_proxy import from_clash, to_clash
 from routeforge.parsers.errors import ParseError, UnsupportedNode
+from routeforge.parsers.manual import parse_manual_input
 from routeforge.resolver import match_filter
 from routeforge.services.library import load_library
 
@@ -38,6 +39,10 @@ class NodePatch(BaseModel):
 
 class NodeConfig(BaseModel):
     config: str
+
+
+class ReparseIn(BaseModel):
+    text: str = Field(min_length=1, max_length=100_000)
 
 
 class BulkIn(BaseModel):
@@ -106,12 +111,28 @@ def _parse_config(text: str):
 
 @router.get("/{node_id}/config")
 def get_node_config(node_id: int, session: SessionDep) -> NodeConfig:
-    row = _get(session, node_id)
+    return _dump(_get(session, node_id).to_node())
+
+
+def _dump(node) -> NodeConfig:
     try:
-        d = to_clash(row.to_node())
+        d = to_clash(node)
     except UnsupportedNode as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     return NodeConfig(config=yaml.safe_dump(d, allow_unicode=True, sort_keys=False, default_flow_style=False))
+
+
+@router.post("/{node_id}/reparse")
+def reparse_node(node_id: int, body: ReparseIn, session: SessionDep) -> NodeConfig:
+    """重新导入：解析一条分享链接 / 节点配置，沿用原节点名，返回 YAML 供确认后保存。不写库。"""
+    row = _get(session, node_id)
+    _require_manual(session, row, "重新导入")
+    outcome = parse_manual_input(body.text)
+    if len(outcome.nodes) != 1:
+        if not outcome.nodes and outcome.errors:
+            raise HTTPException(status_code=400, detail=f"解析失败：{outcome.errors[0].message}")
+        raise HTTPException(status_code=400, detail=f"只能粘贴 1 个节点，识别到 {len(outcome.nodes)} 个")
+    return _dump(outcome.nodes[0].model_copy(update={"name": row.name}))
 
 
 @router.patch("/{node_id}")

@@ -109,13 +109,33 @@ function bulkRemove() {
 const editing = ref<NodeItem | null>(null)
 const editConfig = ref('')
 const saving = ref(false)
+const reimportText = ref('')
+const reparsing = ref(false)
+const reimported = ref(false)
 
 async function openEdit(n: NodeItem) {
   try {
     editConfig.value = (await api.getNodeConfig(n.id)).config
+    reimportText.value = ''
+    reimported.value = false
     editing.value = n
   } catch (e) {
     message.error((e as Error).message)
+  }
+}
+
+/** 重新导入：把分享链接解析成配置填进编辑框（沿用原名称），确认后点保存才生效。 */
+async function doReparse() {
+  if (!editing.value || !reimportText.value.trim()) return
+  reparsing.value = true
+  try {
+    editConfig.value = (await api.reparseNode(editing.value.id, reimportText.value)).config
+    reimported.value = true
+    message.success('已解析，确认无误后点「保存」')
+  } catch (e) {
+    message.error((e as Error).message)
+  } finally {
+    reparsing.value = false
   }
 }
 
@@ -281,6 +301,22 @@ const columns: DataTableColumns<NodeItem> = [
     style="width: 560px; max-width: calc(100vw - 32px)"
     @update:show="(v: boolean) => { if (!v) editing = null }"
   >
+    <div class="reimport">
+      <div class="reimport__label">重新导入</div>
+      <p class="muted reimport__hint">节点换了协议或参数？粘贴新的分享链接（或单个节点配置），会保留当前名称并替换其余内容，引用它的配置方案不受影响。</p>
+      <NInputGroup>
+        <NInput
+          v-model:value="reimportText"
+          placeholder="vless://… / ss://… / hysteria2://…"
+          clearable
+          spellcheck="false"
+          class="mono-input"
+          @keyup.enter="doReparse"
+        />
+        <NButton :loading="reparsing" :disabled="!reimportText.trim()" @click="doReparse">解析</NButton>
+      </NInputGroup>
+    </div>
+    <p v-if="reimported" class="reimport__done">已用新链接替换下方配置，点「保存」后生效。</p>
     <p class="muted" style="margin: 0 0 10px; font-size: 13px">
       使用 Clash / Mihomo 的 proxy 格式，可修改名称、协议、地址、端口、认证、TLS 与传输层等全部字段。
     </p>
@@ -370,6 +406,28 @@ const columns: DataTableColumns<NodeItem> = [
   .toolbar__bulk > .muted {
     margin-right: auto;
   }
+}
+.reimport {
+  border-bottom: 1px solid var(--rf-line);
+  margin-bottom: 12px;
+  padding-bottom: 14px;
+}
+.reimport__label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.reimport__hint {
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+.reimport__done {
+  color: var(--rf-success);
+  font-size: 12px;
+  margin: -4px 0 10px;
+}
+.mono-input :deep(input) {
+  font-family: var(--rf-mono);
 }
 .config-editor :deep(textarea) {
   font-family: var(--rf-mono);

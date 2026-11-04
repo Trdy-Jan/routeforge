@@ -29,6 +29,8 @@ export const api = {
   updateNode: (id: number, body: { name?: string; enabled?: boolean; config?: string }) =>
     request<NodeItem>('PATCH', `/api/nodes/${id}`, body),
   getNodeConfig: (id: number) => request<{ config: string }>('GET', `/api/nodes/${id}/config`),
+  reparseNode: (id: number, text: string) =>
+    request<{ config: string }>('POST', `/api/nodes/${id}/reparse`, { text }),
   deleteNode: (id: number) => request<void>('DELETE', `/api/nodes/${id}`),
   bulkNodes: (ids: number[], enabled: boolean) =>
     request<{ updated: number }>('POST', '/api/nodes/bulk', { ids, enabled }),
