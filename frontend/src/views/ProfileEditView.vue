@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, onMounted, onUnmounted, ref } from 'vue'
+import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { NAlert, NButton, NDropdown, NInput, NResult, NSpace, NSpin, NTabPane, NTabs, useMessage } from 'naive-ui'
 import { api } from '../api'
@@ -27,6 +27,26 @@ const loadError = ref<string | null>(null)
 const tab = ref<IssueSection | 'preview'>('groups')
 const preview = ref<Preview | null>(null)
 const previewLoading = ref(false)
+
+const editbarEl = ref<HTMLElement | null>(null)
+const editbarHeight = ref(74)
+
+watch(
+  editbarEl,
+  (el, _, onCleanup) => {
+    if (!el) return
+    const update = () => {
+      const next = Math.floor(el.getBoundingClientRect().height)
+      if (next > 0) editbarHeight.value = next
+    }
+    update()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    onCleanup(() => ro.disconnect())
+  },
+  { flush: 'post' },
+)
 
 const dirty = computed(() => profile.value !== null && JSON.stringify(profile.value) !== savedJson.value)
 const templateOptions = computed(() =>
@@ -147,7 +167,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
   </NResult>
   <NSpin v-else :show="!profile">
     <div v-if="profile && detail">
-      <div class="editbar">
+      <div ref="editbarEl" class="editbar">
         <NButton quaternary size="small" class="editbar__back" @click="router.push({ name: 'profiles' })">‹ 配置方案</NButton>
         <NInput
           v-model:value="profile.name"
@@ -183,7 +203,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
         <IssueList :issues="issues" @goto="tab = $event" />
       </NAlert>
 
-      <div class="surface editor">
+      <div class="surface editor" :style="{ '--editbar-h': `${editbarHeight}px` }">
         <NTabs v-model:value="tab" type="line" animated :size="isMobile ? 'medium' : 'large'" :tabs-padding="isMobile ? 12 : 20">
           <NTabPane name="groups" :tab="tabLabel('分组', 'groups')">
             <GroupEditor v-model="profile" :nodes="nodes" :sources="sources" />
@@ -252,7 +272,15 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
   font-size: 13px;
 }
 .editor {
-  padding: 4px 0 20px;
+  overflow: clip;
+  padding: 0 0 20px;
+}
+.editor :deep(.n-tabs-nav) {
+  background: var(--rf-surface);
+  padding-top: 4px;
+  position: sticky;
+  top: calc(57px + var(--editbar-h, 74px));
+  z-index: 8;
 }
 .issues-banner {
   margin-bottom: 16px;
@@ -314,6 +342,11 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
     background: none;
     border: 0;
     padding: 0 0 72px;
+  }
+  .editor :deep(.n-tabs-nav) {
+    background: var(--rf-canvas);
+    padding-top: 0;
+    top: 53px; /* 手机顶栏高度(52px) + 底边(1px) */
   }
   .editor :deep(.n-tab-pane) {
     padding: 14px 0 0;
