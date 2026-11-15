@@ -51,6 +51,9 @@ def test_render_structure():
     assert result.warnings == []
     config = yaml.safe_load(result.content)
     assert list(config) == [*BASE_CONFIG, "proxies", "proxy-groups", "rule-providers", "rules"]
+    assert config["dns"]["default-nameserver"] == ["223.5.5.5", "119.29.29.29"]
+    assert config["dns"]["proxy-server-nameserver"] == ["https://doh.pub/dns-query", "https://dns.alidns.com/dns-query"]
+    assert "+.msftconnecttest.com" in config["dns"]["fake-ip-filter"]
     assert [p["name"] for p in config["proxies"]] == ["香港 01", "落地"]
     assert config["proxies"][1]["dialer-proxy"] == "前置"
     assert config["proxy-groups"] == [

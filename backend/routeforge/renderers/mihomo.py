@@ -21,7 +21,16 @@ BASE_CONFIG: dict = {
         "enable": True,
         "enhanced-mode": "fake-ip",
         "fake-ip-range": "198.18.0.1/16",
+        "default-nameserver": ["223.5.5.5", "119.29.29.29"],
         "nameserver": ["https://doh.pub/dns-query", "https://dns.alidns.com/dns-query"],
+        "proxy-server-nameserver": ["https://doh.pub/dns-query", "https://dns.alidns.com/dns-query"],
+        "fake-ip-filter": [
+            "*.lan",
+            "*.local",
+            "+.msftconnecttest.com",
+            "+.msftncsi.com",
+            "localhost.ptlogin2.qq.com",
+        ],
     },
 }
 
