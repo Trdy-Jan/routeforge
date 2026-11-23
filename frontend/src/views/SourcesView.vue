@@ -354,7 +354,7 @@ const columns: DataTableColumns<Source> = [
       type="textarea"
       :rows="10"
       class="mono"
-      placeholder="每行一个分享链接（ss / vmess / vless / trojan / hysteria2 / tuic / mierus），或粘贴 Clash YAML"
+      placeholder="每行一个分享链接（ss / vmess / vless / trojan / hysteria2 / tuic / mierus / snell），或粘贴 Clash YAML"
     />
     <!-- 手机：逐行勾选 + 改名，不用横向拖动的表格 -->
     <div v-else-if="isMobile" class="import-list">

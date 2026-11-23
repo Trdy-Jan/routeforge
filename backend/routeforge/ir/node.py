@@ -131,8 +131,28 @@ class MieruNode(NodeBase):
         return self
 
 
+class SnellNode(NodeBase):
+    type: Literal["snell"] = "snell"
+    psk: str = Field(min_length=1)
+    version: int | None = Field(default=None, ge=1, le=6)
+    reuse: bool | None = None
+    obfs_opts: dict = {}
+
+    @field_validator("version", mode="before")
+    @classmethod
+    def _parse_version(cls, v):
+        if isinstance(v, bool):
+            raise ValueError("无效的 snell version")
+        if isinstance(v, str):
+            s = v.strip().removeprefix("v").removeprefix("V")
+            if not s.isdigit():
+                raise ValueError(f"无效的 snell version：{v}")
+            return int(s)
+        return v
+
+
 Node = Annotated[
-    Union[SSNode, VmessNode, VlessNode, TrojanNode, Hysteria2Node, TuicNode, MieruNode],
+    Union[SSNode, VmessNode, VlessNode, TrojanNode, Hysteria2Node, TuicNode, MieruNode, SnellNode],
     Field(discriminator="type"),
 ]
 

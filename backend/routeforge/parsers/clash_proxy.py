@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 from routeforge.ir.node import (
     port_range_bounds,
-    Hysteria2Node, MieruNode, Node, Reality, SSNode, TLSOptions, Transport, TrojanNode, TuicNode, VlessNode, VmessNode,
+    Hysteria2Node, MieruNode, Node, Reality, SnellNode, SSNode, TLSOptions, Transport, TrojanNode, TuicNode, VlessNode, VmessNode,
 )
 from routeforge.parsers.errors import ParseError, UnsupportedNode
 
@@ -55,6 +55,15 @@ def _from_clash(d: dict) -> Node:
         case "tuic":
             return TuicNode(**common, uuid=d["uuid"], password=str(d.get("password", "")),
                             congestion_control=d.get("congestion-controller") or None, tls=_tls_from(d, t))
+        case "snell":
+            obfs_opts = d.get("obfs-opts") or {}
+            if not isinstance(obfs_opts, dict):
+                raise ParseError("snell：obfs-opts 必须是映射")
+            reuse = d.get("reuse")
+            if reuse is not None and not isinstance(reuse, bool):
+                raise ParseError("snell：reuse 必须是布尔值")
+            return SnellNode(**common, psk=str(d["psk"]), version=d.get("version"),
+                             reuse=reuse, obfs_opts=dict(obfs_opts))
         case _:
             raise ParseError(f"不支持的节点类型：{t}")
 
@@ -166,6 +175,14 @@ def to_clash(node: Node) -> dict:
                                ("traffic-pattern", node.traffic_pattern)):
                 if value:
                     d[key] = value
+        case SnellNode():
+            d["psk"] = node.psk
+            if node.version is not None:
+                d["version"] = node.version
+            if node.reuse is not None:
+                d["reuse"] = node.reuse
+            if node.obfs_opts:
+                d["obfs-opts"] = dict(node.obfs_opts)
     _tls_to(d, node)
     _transport_to(d, node)
     if node.via:
@@ -179,7 +196,7 @@ def _tls_to(d: dict, node: Node) -> None:
         d["tls"] = tls is not None
     if tls is None:
         return
-    if node.type in ("ss", "mieru"):
+    if node.type in ("ss", "mieru", "snell"):
         raise UnsupportedNode(f"{node.type} 节点不支持 TLS 字段")
     if tls.sni:
         d[_SNI_KEY[node.type]] = tls.sni

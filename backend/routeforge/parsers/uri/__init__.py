@@ -5,7 +5,7 @@ from typing import Callable
 
 from routeforge.ir.node import Node
 from routeforge.parsers.errors import ParseError
-from routeforge.parsers.uri import hysteria2, mieru, ss, trojan, tuic, vless, vmess
+from routeforge.parsers.uri import hysteria2, mieru, snell, ss, trojan, tuic, vless, vmess
 
 _PARSERS: dict[str, Callable[[str], Node | list[Node]]] = {
     "ss": ss.parse,
@@ -17,6 +17,7 @@ _PARSERS: dict[str, Callable[[str], Node | list[Node]]] = {
     "tuic": tuic.parse,
     "mierus": mieru.parse,
     "mieru": mieru.parse_standard,
+    "snell": snell.parse,
 }
 
 _DUMPERS: dict[str, Callable] = {
@@ -27,6 +28,7 @@ _DUMPERS: dict[str, Callable] = {
     "hysteria2": hysteria2.dump,
     "tuic": tuic.dump,
     "mieru": mieru.dump,
+    "snell": snell.dump,
 }
 
 

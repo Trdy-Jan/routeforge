@@ -1,7 +1,7 @@
 import pytest
 
 from routeforge.ir.node import (
-    Hysteria2Node, MieruNode, Reality, SSNode, TLSOptions, Transport, TrojanNode, TuicNode, VlessNode, VmessNode,
+    Hysteria2Node, MieruNode, Reality, SnellNode, SSNode, TLSOptions, Transport, TrojanNode, TuicNode, VlessNode, VmessNode,
 )
 from routeforge.parsers.clash_proxy import from_clash, to_clash
 from routeforge.parsers.errors import ParseError, UnsupportedNode
@@ -161,3 +161,34 @@ def test_mieru_with_tls_is_unsupported():
     node = from_clash(MIERU).model_copy(update={"tls": TLSOptions()})
     with pytest.raises(UnsupportedNode):
         to_clash(node)
+
+
+SNELL = {"name": "S", "type": "snell", "server": "203.0.113.20", "port": 20066, "udp": True,
+         "psk": "test-psk-value", "version": 4, "reuse": True,
+         "obfs-opts": {"mode": "http", "host": "bing.com"}}
+
+
+def test_snell_roundtrip():
+    node = from_clash(SNELL)
+    assert isinstance(node, SnellNode) and node.version == 4 and node.reuse is True
+    assert to_clash(node) == SNELL
+
+
+def test_snell_optional_fields_omitted():
+    d = {"name": "S", "type": "snell", "server": "203.0.113.20", "port": 20066, "udp": True, "psk": "test-psk-value"}
+    assert to_clash(from_clash(d)) == d
+
+
+@pytest.mark.parametrize("patch", [
+    {"psk": ""}, {"version": 7}, {"version": 0}, {"version": True}, {"reuse": "yes"}, {"obfs-opts": "http"},
+])
+def test_snell_invalid_fields(patch):
+    with pytest.raises(ParseError):
+        from_clash({**SNELL, **patch})
+
+
+def test_snell_with_tls_is_unsupported():
+    node = from_clash(SNELL).model_copy(update={"tls": TLSOptions()})
+    with pytest.raises(UnsupportedNode):
+        to_clash(node)
+
