@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import PlainTextResponse, Response
 from sqlmodel import Session, select
 
@@ -27,16 +27,31 @@ class CachedSub:
     userinfo: str | None
 
 
+def _resolve_target(target: str | None, user_agent: str | None) -> str:
+    if target is not None:
+        return target
+    if user_agent and "shadowrocket" in user_agent.lower():
+        return "shadowrocket"
+    return "mihomo"
+
+
 @router.get("/sub/{token}")
-def subscribe(token: str, session: SessionDep, cache: CacheDep, target: str = "mihomo") -> Response:
+def subscribe(
+    token: str,
+    session: SessionDep,
+    cache: CacheDep,
+    target: str | None = None,
+    user_agent: str | None = Header(default=None),
+) -> Response:
     row = session.exec(select(ProfileRow).where(ProfileRow.token == token)).first()
     if row is None:
         raise HTTPException(status_code=404)
-    if target not in RENDERERS:
-        raise HTTPException(status_code=400, detail=f"不支持的目标格式：{target}")
+    resolved_target = _resolve_target(target, user_agent)
+    if resolved_target not in RENDERERS:
+        raise HTTPException(status_code=400, detail=f"不支持的目标格式：{resolved_target}")
 
-    key = (row.id, target)
-    sub = cache.get(key) or _render_or_fallback(session, row, target, cache, key)
+    key = (row.id, resolved_target)
+    sub = cache.get(key) or _render_or_fallback(session, row, resolved_target, cache, key)
     if sub is None:
         return PlainTextResponse("方案配置有误且没有可用的历史版本，请在管理界面检查方案", status_code=500)
 

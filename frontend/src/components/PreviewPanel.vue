@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { NAlert, NButton, NSpace, useDialog, useMessage } from 'naive-ui'
+import { NAlert, NButton, NRadioButton, NRadioGroup, NSpace, useDialog, useMessage } from 'naive-ui'
 import { api } from '../api'
-import type { IssueSection, Preview, ProfileDetail } from '../api/types'
+import type { IssueSection, Preview, ProfileDetail, RenderTarget } from '../api/types'
 import IssueList from './IssueList.vue'
 import SubscriptionLink from './SubscriptionLink.vue'
 
@@ -11,8 +11,14 @@ const props = defineProps<{
   dirty: boolean
   preview: Preview | null
   loading: boolean
+  target: RenderTarget
 }>()
-const emit = defineEmits<{ rotated: [detail: ProfileDetail]; reload: []; goto: [section: IssueSection] }>()
+const emit = defineEmits<{
+  rotated: [detail: ProfileDetail]
+  reload: []
+  goto: [section: IssueSection]
+  'update:target': [target: RenderTarget]
+}>()
 const message = useMessage()
 const dialog = useDialog()
 
@@ -38,7 +44,7 @@ function rotate() {
   <NSpace vertical size="large">
     <section class="sub">
       <h3>订阅链接</h3>
-      <p>在 Clash Verge Rev 等使用 Mihomo 内核的客户端中添加此链接。</p>
+      <p>在 Clash Verge Rev 等 Mihomo 内核客户端或 Shadowrocket 中添加此链接（会自动识别客户端适配规则集格式）。</p>
       <SubscriptionLink :token="token">
         <NButton secondary type="warning" @click="rotate">重置</NButton>
       </SubscriptionLink>
@@ -57,7 +63,13 @@ function rotate() {
 
     <section class="code">
       <div class="code__bar">
-        <span>生成的 Mihomo 配置</span>
+        <div class="code__bar-left">
+          <span>生成的配置</span>
+          <NRadioGroup :value="target" size="small" @update:value="(v: RenderTarget) => emit('update:target', v)">
+            <NRadioButton value="mihomo">Mihomo</NRadioButton>
+            <NRadioButton value="shadowrocket">Shadowrocket</NRadioButton>
+          </NRadioGroup>
+        </div>
         <NButton size="tiny" quaternary class="code__btn" :loading="loading" @click="emit('reload')">重新生成</NButton>
       </div>
       <pre v-if="preview?.content" class="yaml">{{ preview.content }}</pre>
@@ -93,8 +105,14 @@ function rotate() {
   color: var(--rf-muted);
   display: flex;
   font-size: 12px;
+  gap: 8px;
   justify-content: space-between;
   padding: 6px 8px 6px 14px;
+}
+.code__bar-left {
+  align-items: center;
+  display: flex;
+  gap: 10px;
 }
 .code__btn {
   color: var(--rf-muted);

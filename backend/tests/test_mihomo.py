@@ -8,7 +8,7 @@ from routeforge.ir.node import Hysteria2Node, MieruNode, Reality, SSNode, TLSOpt
 from routeforge.ir.profile import Rule, RuleProvider
 from routeforge.ir.resolved import ResolvedGroup, ResolvedProfile
 from routeforge.renderers import get_renderer
-from routeforge.renderers.mihomo import BASE_CONFIG, MihomoRenderer
+from routeforge.renderers.mihomo import BASE_CONFIG, MihomoRenderer, ShadowrocketRenderer
 
 UUID = "b831381d-6324-4d53-ad4f-8cda48b30811"
 
@@ -151,8 +151,62 @@ def test_dialer_proxy_pointing_to_skipped_node_is_dropped():
 
 def test_registry():
     assert isinstance(get_renderer("mihomo"), MihomoRenderer)
+    assert isinstance(get_renderer("shadowrocket"), ShadowrocketRenderer)
     with pytest.raises(KeyError):
         get_renderer("surge")
+
+
+def test_shadowrocket_rewrites_mrs_providers_and_geosite_to_yaml():
+    p = sample().model_copy(update={
+        "rules": [
+            Rule(type="RULE-SET", value="ads", target="广告拦截"),
+            Rule(type="GEOSITE", value="cn", target="DIRECT"),
+            Rule(type="MATCH", target="节点选择"),
+        ],
+        "rule_providers": [
+            *sample().rule_providers,
+            RuleProvider(name="custom-txt", behavior="domain", format="text", url="https://example.com/a.list"),
+        ],
+    })
+    result = ShadowrocketRenderer().render(p)
+    assert result.warnings == []
+    config = yaml.safe_load(result.content)
+    assert config["rule-providers"] == {
+        "ads": {
+            "type": "http",
+            "behavior": "domain",
+            "format": "yaml",
+            "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/category-ads-all.yaml",
+            "interval": 86400,
+            "path": "./ruleset/ads.yaml",
+        },
+        "custom-txt": {
+            "type": "http",
+            "behavior": "domain",
+            "format": "text",
+            "url": "https://example.com/a.list",
+            "interval": 86400,
+            "path": "./ruleset/custom-txt.list",
+        },
+        "geosite-cn": {
+            "type": "http",
+            "behavior": "domain",
+            "format": "yaml",
+            "url": f"{GEOSITE_BASE}/cn.yaml",
+            "interval": 86400,
+            "path": "./ruleset/geosite-cn.yaml",
+        },
+    }
+    assert config["rules"] == ["RULE-SET,ads,广告拦截", "RULE-SET,geosite-cn,DIRECT", "MATCH,节点选择"]
+
+
+def test_shadowrocket_warns_when_mrs_url_cannot_be_rewritten():
+    p = geosite_profile(
+        [Rule(type="RULE-SET", value="odd", target="G")],
+        [RuleProvider(name="odd", behavior="domain", format="mrs", url="https://example.com/ruleset")],
+    )
+    result = ShadowrocketRenderer().render(p)
+    assert any("odd" in w and "Shadowrocket" in w for w in result.warnings)
 
 
 @pytest.mark.skipif(shutil.which("mihomo") is None, reason="mihomo 不在 PATH 中")

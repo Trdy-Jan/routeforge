@@ -94,6 +94,42 @@ def test_unknown_target_is_400(admin):
     assert admin.get(f"/sub/{p['token']}", params={"target": "surge"}).status_code == 400
 
 
+def test_shadowrocket_target_via_user_agent_or_query_param(admin):
+    manual_with(admin, SS_HK)
+    body = {
+        **GOOD,
+        "rules": [
+            {"type": "GEOSITE", "value": "cn", "target": "DIRECT"},
+            {"type": "MATCH", "target": "Proxy"},
+        ],
+    }
+    p = make_profile(admin, body)
+
+    # 默认 UA 返回 mihomo (.mrs)
+    mihomo_cfg = yaml.safe_load(admin.get(f"/sub/{p['token']}").text)
+    assert mihomo_cfg["rule-providers"]["geosite-cn"]["format"] == "mrs"
+    assert mihomo_cfg["rule-providers"]["geosite-cn"]["url"].endswith(".mrs")
+
+    # Shadowrocket UA 自动切换为 shadowrocket (.yaml)
+    sr_resp = admin.get(f"/sub/{p['token']}", headers={"User-Agent": "Shadowrocket/2050 CFNetwork/1494.0.7 Darwin/23.4.0"})
+    assert sr_resp.status_code == 200
+    sr_cfg = yaml.safe_load(sr_resp.text)
+    assert sr_cfg["rule-providers"]["geosite-cn"]["format"] == "yaml"
+    assert sr_cfg["rule-providers"]["geosite-cn"]["url"].endswith(".yaml")
+
+    # 显式 ?target=mihomo 覆盖 Shadowrocket UA
+    override_resp = admin.get(
+        f"/sub/{p['token']}",
+        params={"target": "mihomo"},
+        headers={"User-Agent": "Shadowrocket/2050"},
+    )
+    assert yaml.safe_load(override_resp.text)["rule-providers"]["geosite-cn"]["format"] == "mrs"
+
+    # 显式 ?target=shadowrocket 在普通 UA 下也返回 .yaml
+    param_resp = admin.get(f"/sub/{p['token']}", params={"target": "shadowrocket"})
+    assert yaml.safe_load(param_resp.text)["rule-providers"]["geosite-cn"]["format"] == "yaml"
+
+
 def test_cache_is_used_and_invalidated_by_writes(admin, app):
     manual_with(admin, SS_HK)
     p = make_profile(admin)

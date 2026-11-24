@@ -72,6 +72,7 @@ class MihomoRenderer:
             groups.append(entry)
 
         rules, providers = _geosite_to_rule_sets(profile.rules, profile.rule_providers)
+        providers = self._adapt_providers(providers, warnings)
 
         config = copy.deepcopy(BASE_CONFIG)
         config["proxies"] = proxies
@@ -82,6 +83,28 @@ class MihomoRenderer:
 
         content = yaml.safe_dump(config, allow_unicode=True, sort_keys=False, default_flow_style=False)
         return RenderResult(content=content, content_type="text/yaml; charset=utf-8", file_ext="yaml", warnings=warnings)
+
+    def _adapt_providers(self, providers: list[RuleProvider], warnings: list[str]) -> list[RuleProvider]:
+        return providers
+
+
+class ShadowrocketRenderer(MihomoRenderer):
+    """Shadowrocket 兼容的 Clash YAML 渲染器：将 .mrs 二进制规则集转换为 .yaml。"""
+
+    target = "shadowrocket"
+
+    def _adapt_providers(self, providers: list[RuleProvider], warnings: list[str]) -> list[RuleProvider]:
+        out: list[RuleProvider] = []
+        for p in providers:
+            if p.format != "mrs":
+                out.append(p)
+                continue
+            if p.url.lower().endswith(".mrs"):
+                out.append(p.model_copy(update={"format": "yaml", "url": p.url[:-4] + ".yaml"}))
+            else:
+                warnings.append(f"规则集「{p.name}」为 mrs 格式且 URL 不以 .mrs 结尾，Shadowrocket 可能无法加载")
+                out.append(p)
+        return out
 
 
 def _geosite_to_rule_sets(rules: list[Rule], providers: list[RuleProvider]) -> tuple[list[Rule], list[RuleProvider]]:

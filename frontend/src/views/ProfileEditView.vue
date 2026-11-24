@@ -3,7 +3,7 @@ import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { NAlert, NButton, NDropdown, NInput, NResult, NSpace, NSpin, NTabPane, NTabs, useMessage } from 'naive-ui'
 import { api } from '../api'
-import type { IssueSection, NodeItem, Preview, Profile, ProfileDetail, Source, TemplateInfo } from '../api/types'
+import type { IssueSection, NodeItem, Preview, Profile, ProfileDetail, RenderTarget, Source, TemplateInfo } from '../api/types'
 import ChainEditor from '../components/ChainEditor.vue'
 import GroupEditor from '../components/GroupEditor.vue'
 import IssueList from '../components/IssueList.vue'
@@ -27,6 +27,7 @@ const loadError = ref<string | null>(null)
 const tab = ref<IssueSection | 'preview'>('groups')
 const preview = ref<Preview | null>(null)
 const previewLoading = ref(false)
+const previewTarget = ref<RenderTarget>('mihomo')
 
 const editbarEl = ref<HTMLElement | null>(null)
 const editbarHeight = ref(74)
@@ -79,7 +80,7 @@ async function loadPreview(): Promise<Preview | null> {
   const mine = ++previewSeq
   previewLoading.value = true
   try {
-    const r = await api.preview(detail.value.id)
+    const r = await api.preview(detail.value.id, previewTarget.value)
     if (mine === previewSeq) preview.value = r
     return r
   } catch (e) {
@@ -88,6 +89,12 @@ async function loadPreview(): Promise<Preview | null> {
   } finally {
     if (mine === previewSeq) previewLoading.value = false
   }
+}
+
+function setPreviewTarget(target: RenderTarget) {
+  if (previewTarget.value === target) return
+  previewTarget.value = target
+  loadPreview()
 }
 
 async function load() {
@@ -224,6 +231,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
               :dirty="dirty"
               :preview="preview"
               :loading="previewLoading"
+              :target="previewTarget"
+              @update:target="setPreviewTarget"
               @reload="loadPreview"
               @goto="tab = $event"
               @rotated="onRotated"

@@ -1,7 +1,7 @@
 import { request } from './client'
 import type {
   FilterMember, ImportItem, ImportResult, ParseResult, LibraryCategory, LibraryIndex, RuleContent, NodeItem, OpenClashSettings, OpenClashSettingsInput, Preview, Profile, ProfileDetail, ProfileSummary, RefreshResult,
-  PushStatus, Source, SourceInput, SourcePatch, TemplateInfo,
+  PushStatus, RenderTarget, Source, SourceInput, SourcePatch, TemplateInfo,
 } from './types'
 
 export function buildQuery(params: Record<string, string | number | null | undefined>): string {
@@ -49,7 +49,8 @@ export const api = {
     request<{ profile: ProfileDetail; notes: string[] }>('POST', `/api/profiles/${id}/apply-template`,
       { template_id: templateId }),
   rotateToken: (id: number) => request<ProfileDetail>('POST', `/api/profiles/${id}/rotate-token`),
-  preview: (id: number) => request<Preview>('GET', `/api/profiles/${id}/preview`),
+  preview: (id: number, target?: RenderTarget) =>
+    request<Preview>('GET', `/api/profiles/${id}/preview` + buildQuery({ target })),
 
   listTemplates: () => request<TemplateInfo[]>('GET', '/api/templates'),
 

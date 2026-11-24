@@ -121,7 +121,7 @@ const columns: DataTableColumns<ProfileSummary> = [
 </script>
 
 <template>
-  <PageHeader title="配置方案" description="每个方案生成一条订阅链接，在 Clash Verge Rev 等 Mihomo 内核客户端中添加即可。">
+  <PageHeader title="配置方案" description="每个方案生成一条订阅链接，在 Clash Verge Rev 等 Mihomo 内核客户端或 Shadowrocket 中添加即可。">
     <NButton type="primary" @click="showCreate = true">新建方案</NButton>
   </PageHeader>
   <NDataTable v-if="!isMobile" :columns="columns" :data="profiles" :loading="loading" :row-key="(p: ProfileSummary) => p.id" :scroll-x="720">

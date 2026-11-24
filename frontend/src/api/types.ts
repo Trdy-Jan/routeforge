@@ -169,6 +169,8 @@ export interface Issue {
   hint: string
 }
 
+export type RenderTarget = 'mihomo' | 'shadowrocket'
+
 export interface Preview {
   ok: boolean
   content: string | null

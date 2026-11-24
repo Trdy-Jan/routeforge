@@ -1,8 +1,9 @@
 from routeforge.renderers.base import Renderer, RenderResult
-from routeforge.renderers.mihomo import MihomoRenderer
+from routeforge.renderers.mihomo import MihomoRenderer, ShadowrocketRenderer
 
 RENDERERS: dict[str, Renderer] = {
     "mihomo": MihomoRenderer(),
+    "shadowrocket": ShadowrocketRenderer(),
 }
 
 
