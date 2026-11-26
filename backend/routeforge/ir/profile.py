@@ -98,3 +98,4 @@ class Profile(BaseModel):
     rules: list[Rule] = []
     rule_providers: list[RuleProvider] = []
     chains: list[Chain] = []
+    use_jsdelivr: bool = False

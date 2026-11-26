@@ -22,3 +22,4 @@ class ResolvedProfile(BaseModel):
     rules: list[Rule]
     rule_providers: list[RuleProvider]
     source_ids: list[int]  # 本方案实际用到的节点源，升序
+    use_jsdelivr: bool = False

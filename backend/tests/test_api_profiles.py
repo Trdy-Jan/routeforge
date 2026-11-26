@@ -26,7 +26,9 @@ def test_requires_login(client):
 
 def test_create_get_update_delete(admin):
     p = create_profile(admin)
-    assert p["profile"] == {"name": "我的方案", "groups": [], "rules": [], "rule_providers": [], "chains": []}
+    assert p["profile"] == {
+        "name": "我的方案", "groups": [], "rules": [], "rule_providers": [], "chains": [], "use_jsdelivr": False,
+    }
     assert len(p["token"]) >= 40 and p["last_good_at"] is None
 
     updated = admin.put(f"/api/profiles/{p['id']}", json=GOOD).json()

@@ -300,4 +300,5 @@ class _Resolver:
             rules=list(self.profile.rules),
             rule_providers=list(self.profile.rule_providers),
             source_ids=sorted({self.by_id[n].source_id for n in used}),
+            use_jsdelivr=self.profile.use_jsdelivr,
         )

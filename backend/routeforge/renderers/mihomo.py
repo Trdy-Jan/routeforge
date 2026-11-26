@@ -1,6 +1,7 @@
 """Mihomo（Clash Meta）YAML 渲染器。"""
 
 import copy
+import re
 from urllib.parse import quote
 
 import yaml
@@ -38,6 +39,34 @@ _PROVIDER_EXT = {"yaml": "yaml", "text": "list", "mrs": "mrs"}
 
 GEOSITE_MRS_BASE = "https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite"
 
+_GITHUB_RAW_RE = re.compile(
+    r"^https?://(?:github\.com/(?P<owner1>[^/]+)/(?P<repo1>[^/]+)/(?:raw|blob)/(?:refs/heads/)?(?P<branch1>[^/]+)/(?P<path1>.+)"
+    r"|raw\.githubusercontent\.com/(?P<owner2>[^/]+)/(?P<repo2>[^/]+)/(?:refs/heads/)?(?P<branch2>[^/]+)/(?P<path2>.+))$"
+)
+_JSDELIVR_RE = re.compile(
+    r"^https?://cdn\.jsdelivr\.net/gh/(?P<owner>[^/]+)/(?P<repo>[^/@]+)@(?P<branch>[^/]+)/(?P<path>.+)$"
+)
+
+
+def to_jsdelivr_url(url: str) -> str:
+    """将 GitHub raw / blob 链接转换为 jsDelivr CDN 链接；非 GitHub 链接原样返回。"""
+    m = _GITHUB_RAW_RE.match(url)
+    if not m:
+        return url
+    owner = m.group("owner1") or m.group("owner2")
+    repo = m.group("repo1") or m.group("repo2")
+    branch = m.group("branch1") or m.group("branch2")
+    path = m.group("path1") or m.group("path2")
+    return f"https://cdn.jsdelivr.net/gh/{owner}/{repo}@{branch}/{path}"
+
+
+def _canonical_provider_url(url: str) -> str:
+    """将 GitHub raw 与 jsDelivr 统一为同一形式，用于判断两个规则集是否指向同一上游规则。"""
+    m = _JSDELIVR_RE.match(url)
+    if m:
+        return f"https://github.com/{m.group('owner')}/{m.group('repo')}/raw/{m.group('branch')}/{m.group('path')}"
+    return url
+
 
 class MihomoRenderer:
     target = "mihomo"
@@ -73,6 +102,8 @@ class MihomoRenderer:
 
         rules, providers = _geosite_to_rule_sets(profile.rules, profile.rule_providers)
         providers = self._adapt_providers(providers, warnings)
+        if profile.use_jsdelivr:
+            providers = [p.model_copy(update={"url": to_jsdelivr_url(p.url)}) for p in providers]
 
         config = copy.deepcopy(BASE_CONFIG)
         config["proxies"] = proxies
@@ -111,7 +142,7 @@ def _geosite_to_rule_sets(rules: list[Rule], providers: list[RuleProvider]) -> t
     """GEOSITE 依赖客户端本地 GeoSite.dat，各客户端自带的版本分类不全（如 ShellCrash 精简版缺 tencent），
     因此改写为引用 meta-rules-dat 按分类编译的 .mrs 规则集；已有同 URL 的规则集直接复用。"""
     providers = list(providers)
-    by_url = {p.url: p.name for p in providers}
+    by_url = {_canonical_provider_url(p.url): p.name for p in providers}
     names = {p.name for p in providers}
     out: list[Rule] = []
     for r in rules:
@@ -120,14 +151,14 @@ def _geosite_to_rule_sets(rules: list[Rule], providers: list[RuleProvider]) -> t
             continue
         category = r.value.strip().lower()
         url = f"{GEOSITE_MRS_BASE}/{quote(category, safe='@!-_.')}.mrs"
-        name = by_url.get(url)
+        name = by_url.get(_canonical_provider_url(url))
         if name is None:
             name = base = f"geosite-{category}"
             n = 2
             while name in names:
                 name, n = f"{base}-{n}", n + 1
             providers.append(RuleProvider(name=name, behavior="domain", format="mrs", url=url))
-            by_url[url] = name
+            by_url[_canonical_provider_url(url)] = name
             names.add(name)
         out.append(r.model_copy(update={"type": "RULE-SET", "value": name}))
     return out, providers

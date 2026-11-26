@@ -146,6 +146,7 @@ export interface Profile {
   rules: Rule[]
   rule_providers: RuleProvider[]
   chains: Chain[]
+  use_jsdelivr?: boolean
 }
 
 export interface ProfileSummary {

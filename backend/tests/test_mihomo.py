@@ -8,7 +8,7 @@ from routeforge.ir.node import Hysteria2Node, MieruNode, Reality, SSNode, TLSOpt
 from routeforge.ir.profile import Rule, RuleProvider
 from routeforge.ir.resolved import ResolvedGroup, ResolvedProfile
 from routeforge.renderers import get_renderer
-from routeforge.renderers.mihomo import BASE_CONFIG, MihomoRenderer, ShadowrocketRenderer
+from routeforge.renderers.mihomo import BASE_CONFIG, MihomoRenderer, ShadowrocketRenderer, to_jsdelivr_url
 
 UUID = "b831381d-6324-4d53-ad4f-8cda48b30811"
 
@@ -207,6 +207,52 @@ def test_shadowrocket_warns_when_mrs_url_cannot_be_rewritten():
     )
     result = ShadowrocketRenderer().render(p)
     assert any("odd" in w and "Shadowrocket" in w for w in result.warnings)
+
+
+def test_to_jsdelivr_url_conversion():
+    assert (
+        to_jsdelivr_url("https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/cn.mrs")
+        == "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/cn.mrs"
+    )
+    assert (
+        to_jsdelivr_url("https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/direct.txt")
+        == "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt"
+    )
+    assert (
+        to_jsdelivr_url("https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geoip/cn.mrs")
+        == "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geoip/cn.mrs"
+    )
+    assert to_jsdelivr_url("https://example.com/rules/custom.yaml") == "https://example.com/rules/custom.yaml"
+
+
+def test_use_jsdelivr_rewrites_rule_providers_in_mihomo_and_shadowrocket():
+    p = sample().model_copy(update={
+        "use_jsdelivr": True,
+        "rules": [
+            Rule(type="RULE-SET", value="ads", target="广告拦截"),
+            Rule(type="GEOSITE", value="cn", target="DIRECT"),
+            Rule(type="MATCH", target="节点选择"),
+        ],
+    })
+    mihomo_cfg = yaml.safe_load(MihomoRenderer().render(p).content)
+    assert (
+        mihomo_cfg["rule-providers"]["ads"]["url"]
+        == "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/category-ads-all.mrs"
+    )
+    assert (
+        mihomo_cfg["rule-providers"]["geosite-cn"]["url"]
+        == "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/cn.mrs"
+    )
+
+    sr_cfg = yaml.safe_load(ShadowrocketRenderer().render(p).content)
+    assert (
+        sr_cfg["rule-providers"]["ads"]["url"]
+        == "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/category-ads-all.yaml"
+    )
+    assert (
+        sr_cfg["rule-providers"]["geosite-cn"]["url"]
+        == "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/cn.yaml"
+    )
 
 
 @pytest.mark.skipif(shutil.which("mihomo") is None, reason="mihomo 不在 PATH 中")

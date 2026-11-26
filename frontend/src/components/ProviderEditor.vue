@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { NButton, NEmpty, NInput, NInputNumber, NSelect, NSpace, useDialog, useMessage } from 'naive-ui'
+import { NButton, NCheckbox, NEmpty, NInput, NInputNumber, NSelect, NSpace, useDialog, useMessage } from 'naive-ui'
 import type { Profile, RuleProvider } from '../api/types'
 
 const profile = defineModel<Profile>({ required: true })
@@ -64,7 +64,15 @@ function remove(index: number) {
 
 <template>
   <NSpace vertical>
-    <p class="hint">规则集是远程维护的规则列表，在「规则」中用 RULE-SET 类型引用。mrs 格式只支持 domain 和 ipcidr。</p>
+    <div class="pv-toolbar">
+      <p class="hint">规则集是远程维护的规则列表，在「规则」中用 RULE-SET 类型引用。mrs 格式只支持 domain 和 ipcidr。</p>
+      <NCheckbox
+        :checked="Boolean(profile.use_jsdelivr)"
+        @update:checked="(v: boolean) => (profile.use_jsdelivr = v)"
+      >
+        使用 jsDelivr CDN 加速 GitHub 规则集地址
+      </NCheckbox>
+    </div>
     <NEmpty v-if="!profile.rule_providers.length" description="还没有规则集" />
     <div v-for="(p, i) in profile.rule_providers" :key="i" class="edit-row">
       <NInput
@@ -120,10 +128,18 @@ function remove(index: number) {
 .pv-interval {
   width: 130px;
 }
+.pv-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
 .hint {
   color: var(--rf-muted);
   font-size: 13px;
-  margin: 0 0 4px;
+  margin: 0;
 }
 .usage {
   color: var(--rf-muted);
